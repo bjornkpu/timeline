@@ -54,7 +54,7 @@ class StdoutExporterConfig:
 @dataclass
 class SummarizerConfig:
     enabled: bool = False
-    model: str = ""  # empty = use default subscription model
+    model: str = "haiku"  # empty = use default subscription model
 
 
 @dataclass

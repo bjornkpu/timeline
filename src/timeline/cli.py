@@ -192,7 +192,7 @@ def backfill(
             except ValueError:
                 raise click.BadParameter(f"Invalid end date: {end_date}") from None
         else:
-            end = date.today() - timedelta(days=1)
+            end = date.today()
 
         date_range = DateRange(start=start, end=end)
     else:
