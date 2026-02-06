@@ -16,14 +16,33 @@ uv sync
 uv run timeline init          # create ~/.timeline/config.toml
 ```
 
-## Usage
+### Global install (optional)
+
+Install as a global tool so `timeline` works from any directory:
 
 ```bash
-uv run timeline run today             # full pipeline for today
-uv run timeline run yesterday --quick # skip LLM summarization
-uv run timeline show today            # display stored timeline
-uv run timeline backfill 2026-01-01   # load historical data
-uv run timeline reset                 # wipe DB and start fresh
+uv tool install -e .          # run from project root; editable so source changes apply immediately
+```
+
+Uninstall with `uv tool uninstall timeline`.
+
+## Usage
+
+After global install, drop the `uv run` prefix:
+
+```bash
+timeline run today             # full pipeline for today
+timeline run yesterday --quick # skip LLM summarization
+timeline show today            # display stored timeline
+timeline backfill 2026-01-01   # load historical data
+timeline reset                 # wipe DB and start fresh
+```
+
+Or run from the project directory without global install:
+
+```bash
+uv run timeline run today
+uv run timeline show today
 ```
 
 Key flags: `--quick` (skip LLM), `--refresh` (force re-collect API sources), `--group-by {flat,hour,period}`.
