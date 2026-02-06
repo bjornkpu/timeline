@@ -54,7 +54,7 @@ class Pipeline:
         self.collect(date_range, refresh=refresh)
         self.transform(date_range)
         if not quick:
-            self.summarize(date_range)
+            self.summarize(date_range, refresh=refresh)
         self.show(date_range)
 
     def collect(self, date_range: DateRange, refresh: bool = False) -> None:
@@ -88,10 +88,16 @@ class Pipeline:
         count = self._store.save_events(events)
         click.echo(f"  Transformed {count} events")
 
-    def summarize(self, date_range: DateRange) -> None:
-        """Generate LLM summary from events."""
+    def summarize(self, date_range: DateRange, refresh: bool = False) -> None:
+        """Generate LLM summary from events, skip if already cached."""
         if not self._config.summarizer.enabled:
             return
+
+        if not refresh:
+            existing = self._store.get_summary(date_range, PeriodType.DAY)
+            if existing:
+                click.echo("  Summary cached (use --refresh to regenerate)")
+                return
 
         events = self._store.get_events(date_range)
         summary = self._summarizer.summarize(events, date_range, PeriodType.DAY)

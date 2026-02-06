@@ -54,9 +54,7 @@ class StdoutExporterConfig:
 @dataclass
 class SummarizerConfig:
     enabled: bool = False
-    command: str = (
-        "claude -p 'Summarize this developer activity timeline into a concise daily report'"
-    )
+    model: str = ""  # empty = use default subscription model
 
 
 @dataclass
@@ -133,7 +131,7 @@ class TimelineConfig:
             ),
             summarizer=SummarizerConfig(
                 enabled=summarizer_data.get("enabled", False),
-                command=summarizer_data.get("command", ""),
+                model=summarizer_data.get("model", ""),
             ),
         )
 
@@ -217,7 +215,7 @@ group_by = "{config.stdout.group_by}"
 
 [summarizer]
 enabled = {str(config.summarizer.enabled).lower()}
-command = "{config.summarizer.command}"
+model = "{config.summarizer.model}"
 """
 
 
