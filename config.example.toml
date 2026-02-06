@@ -1,0 +1,45 @@
+[general]
+db_path = "~/.timeline/timeline.db"
+timezone = ""  # empty = system default
+lunch_boundary = "12:00"
+
+[general.work_hours]
+start = "08:00"
+end = "17:00"
+
+[projects]
+default_from = "repo_name"
+
+# Map repo path substrings to display names.
+# Multiple repos can map to the same project.
+[projects.mapping]
+# "customer-api" = "Customer Platform"
+# "customer-frontend" = "Customer Platform"
+# "internal-tools" = "Internal Tooling"
+
+[collectors.git]
+enabled = true
+authors = [
+    # Add all your git identities
+    # { email = "bk@workplace.com" },
+    # { email = "bk@customer.com" },
+    # { email = "bk@personal.com" },
+]
+repos = [
+    # List all repos you want to track
+    # "C:\\Users\\bjopunsv\\Dev\\project-a",
+    # "C:\\Users\\bjopunsv\\Dev\\project-b",
+]
+
+[collectors.shell]
+enabled = false
+# Path to the JSONL log file created by the PSReadLine hook in timeline.ps1
+history_path = "~/.timeline/shell_history.jsonl"
+
+[exporters.stdout]
+enabled = true
+group_by = "flat"  # "flat", "hour", "period"
+
+[summarizer]
+enabled = false
+command = "claude -p 'Summarize this developer activity timeline into a concise daily report'"

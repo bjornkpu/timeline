@@ -1,0 +1,38 @@
+[project]
+name = "timeline"
+version = "0.1.0"
+description = "Local-first daily activity timeline aggregator for developers"
+readme = "README.md"
+authors = [
+    { name = "Bjørn Kristian Punsvik", email = "bjorn.punsvik@enova.no" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.1",
+]
+
+[project.scripts]
+timeline = "timeline.cli:cli"
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.15.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+ignore = ["UP042"]  # StrEnum requires different serialization handling
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

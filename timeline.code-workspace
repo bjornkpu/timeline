@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../.timeline"
+		}
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"pytest": true
+		},
+		"github.copilot.chat.commitMessageGeneration.instructions": [
+			{
+				"file": ".github/copilot-commit-message-instructions.md"
+			}
+		]
+	}
+}

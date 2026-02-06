@@ -1,0 +1,17 @@
+{
+    "files.exclude": {
+        ".venv": true,
+        "**/__pycache__": true,
+        ".pytest_cache": true,
+        ".ruff_cache": true,
+        "uv.lock": true,
+    },
+    "chat.tools.terminal.autoApprove": {
+        "pytest": true
+    },
+    "github.copilot.chat.commitMessageGeneration.instructions": [
+        {
+            "file": ".github/copilot-commit-message-instructions.md"
+        }
+    ],
+}
