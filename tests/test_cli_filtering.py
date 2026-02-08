@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from click import BadParameter, UsageError
 from click.testing import CliRunner
 
-from timeline.cli import cli, parse_source_arg, _build_source_filter
-from timeline.models import DateRange, SourceFilter, TimelineEvent
+from timeline.cli import _build_source_filter, cli, parse_source_arg
+from timeline.models import TimelineEvent
 from timeline.store import TimelineStore
 
 
@@ -37,7 +38,7 @@ class TestParseSourceArg:
 
     def test_invalid_source_raises_error(self):
         """Raise error for invalid source names."""
-        with pytest.raises(Exception):  # click.BadParameter
+        with pytest.raises(BadParameter):
             parse_source_arg("git,invalid_source")
 
 
@@ -60,7 +61,7 @@ class TestBuildSourceFilter:
 
     def test_both_flags_raises_error(self):
         """Raise error when both include and exclude provided."""
-        with pytest.raises(Exception):  # click.UsageError
+        with pytest.raises(UsageError):
             _build_source_filter("git", "browser")
 
     def test_no_filters_returns_none(self):

@@ -157,7 +157,10 @@ class Parser:
         raw: RawEvent,
         config: TimelineConfig,
     ) -> TimelineEvent | None:
-        """Transform a Windows logon/logoff event into a timeline event."""
+        """Transform a Windows event log entry into a timeline event.
+
+        Handles logon/logoff (7001/7002) events from System log.
+        """
         data = raw.raw_data
         try:
             timestamp = datetime.fromisoformat(data["timestamp"])
@@ -165,11 +168,17 @@ class Parser:
             return None
 
         event_type = data.get("event_type", "")
-        if event_type not in ("logon", "logoff"):
+
+        # Map event types to categories
+        category_map = {
+            "logon": "active",
+            "logoff": "afk",
+        }
+
+        if event_type not in category_map:
             return None
 
-        # Categorize based on event type
-        category = "afk" if event_type == "logoff" else "active"
+        category = category_map[event_type]
         description = f"Workstation {event_type}"
 
         metadata = {

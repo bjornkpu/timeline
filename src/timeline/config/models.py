@@ -2,11 +2,30 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, tzinfo
 from pathlib import Path
 
-DEFAULT_CONFIG_DIR = Path.home() / ".timeline"
+
+def _get_user_home() -> Path:
+    """Get the actual user's home directory, even when running as admin.
+
+    When running in an admin terminal, USERPROFILE points to admin user's home.
+    This function detects the original user from environment and returns their home.
+    """
+    # Try to get original user from USERNAME env var (preserved in admin terminals)
+    username = os.environ.get("USERNAME")
+    if username:
+        user_home = Path("C:") / "Users" / username
+        if user_home.exists():
+            return user_home
+
+    # Fallback to standard home
+    return Path.home()
+
+
+DEFAULT_CONFIG_DIR = _get_user_home() / ".timeline"
 DEFAULT_CONFIG_PATH = DEFAULT_CONFIG_DIR / "config.toml"
 DEFAULT_DB_PATH = DEFAULT_CONFIG_DIR / "timeline.db"
 DEFAULT_SHELL_HISTORY_PATH = DEFAULT_CONFIG_DIR / "shell_history.jsonl"

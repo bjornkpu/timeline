@@ -29,36 +29,70 @@ class WindowsEventLogCollector(Collector):
         Returns empty list if wevtutil fails or is unavailable.
         """
         try:
-            xml_output = self._query_event_log(date_range)
+            # Collect logon/logoff from System log
+            xml_output, _ = self._query_event_log(date_range, log="System")
             if not xml_output:
                 return []
-            return self._parse_xml_events(xml_output, date_range)
+
+            return self._parse_xml_events(
+                xml_output,
+                date_range,
+                event_ids=["7001", "7002"],
+                event_type_map={"7001": "logon", "7002": "logoff"},
+            )
         except Exception:
-            # Silent fail: wevtutil not available, permission issues, parse errors
+            # Silent fail: wevtutil not available, other errors
             return []
 
-    def _query_event_log(self, date_range: DateRange) -> str:
-        """Query Windows System event log for EventID 7001 (logon) and 7002 (logoff).
+    def _query_event_log(self, date_range: DateRange, log: str = "System") -> tuple[str, bool]:
+        """Query Windows event log for events.
 
-        Uses wevtutil CLI. Returns raw XML string or empty string on failure.
+        Uses wevtutil CLI. Returns (xml_output, access_denied) tuple.
+
+        Args:
+            date_range: Date range to query
+            log: Event log name ("System" or "Security")
+
+        Returns:
+            Tuple of (xml_string, access_denied_flag)
         """
         try:
-            # Query System log for EventID 7001/7002 as XML
             result = subprocess.run(
-                ["wevtutil", "qe", "System"],
+                ["wevtutil", "qe", log],
                 capture_output=True,
                 text=True,
                 timeout=30,
             )
             if result.returncode != 0:
-                return ""
-            return result.stdout
+                # Check if this is an access denied error
+                if "Access Denied" in result.stderr or "denied" in result.stderr.lower():
+                    return "", True
+                return "", False
+            return result.stdout, False
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             # wevtutil not found or timed out
-            return ""
+            return "", False
 
-    def _parse_xml_events(self, xml_output: str, date_range: DateRange) -> list[RawEvent]:
-        """Parse wevtutil XML output and filter by EventID 7001/7002 and SessionID=0."""
+    def _parse_xml_events(
+        self,
+        xml_output: str,
+        date_range: DateRange,
+        event_ids: list[str] | None = None,
+        event_type_map: dict[str, str] | None = None,
+    ) -> list[RawEvent]:
+        """Parse wevtutil XML output and filter by EventID and date range.
+
+        Args:
+            xml_output: Raw XML from wevtutil
+            date_range: Date range to filter by
+            event_ids: EventIDs to include (default: ["7001", "7002"])
+            event_type_map: Mapping of EventID to event_type (default: 7001→logon, 7002→logoff)
+        """
+        if event_ids is None:
+            event_ids = ["7001", "7002"]
+        if event_type_map is None:
+            event_type_map = {"7001": "logon", "7002": "logoff"}
+
         events: list[RawEvent] = []
         now = datetime.now(UTC)
         start_utc = date_range.start_utc
@@ -82,7 +116,7 @@ class WindowsEventLogCollector(Collector):
 
             # Extract EventID
             event_id_elem = system.find("event:EventID", ns)
-            if event_id_elem is None or event_id_elem.text not in ("7001", "7002"):
+            if event_id_elem is None or event_id_elem.text not in event_ids:
                 continue
 
             # Extract TimeCreated
@@ -101,19 +135,16 @@ class WindowsEventLogCollector(Collector):
             if ts_utc < start_utc or ts_utc >= end_utc:
                 continue
 
-            # Extract SessionID/TSId (Terminal Session ID) from EventData
-            # TSId values:
-            #  0 = System/Services
-            #  1 = Console session (local user)
-            #  6 = RDP session (may be local user via Remote Desktop)
-            # We include both console (1) and RDP (6) to capture all user activity
-            session_id = self._extract_session_id(event_elem, ns)
-            if session_id and session_id not in ("0", "1", "6"):
-                # Skip other session types (7+, etc.)
-                continue
+            # For logon/logoff events (7001/7002), filter by SessionID
+            # For lock/unlock events (4800/4801), no session filtering needed
+            if event_id_elem.text in ("7001", "7002"):
+                session_id = self._extract_session_id(event_elem, ns)
+                if session_id and session_id not in ("0", "1", "6"):
+                    # Skip other session types (7+, etc.)
+                    continue
 
             event_id = event_id_elem.text
-            event_type = "logon" if event_id == "7001" else "logoff"
+            event_type = event_type_map.get(event_id, "unknown")
 
             events.append(
                 RawEvent(

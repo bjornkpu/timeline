@@ -126,9 +126,10 @@ def run(
 
     DATE can be 'today', 'yesterday', or YYYY-MM-DD.
     """
+    config = _load_config()
+
     date_range = parse_date_arg(date_str)
     source_filter = _build_source_filter(include, exclude)
-    config = _load_config()
     pipeline = Pipeline(config)
     try:
         pipeline.run(date_range, quick=quick, refresh=refresh, source_filter=source_filter)
@@ -144,8 +145,9 @@ def collect(date_str: str, refresh: bool) -> None:
 
     DATE can be 'today', 'yesterday', or YYYY-MM-DD.
     """
-    date_range = parse_date_arg(date_str)
     config = _load_config()
+
+    date_range = parse_date_arg(date_str)
     pipeline = Pipeline(config)
     try:
         pipeline.collect(date_range, refresh=refresh)

@@ -287,3 +287,17 @@ class TestWindowsEventsTransformer:
         event = self.transformer.transform([raw])[0]
         assert event.metadata["event_type"] == "logon"
         assert event.metadata["event_id"] == 7001
+
+    def test_invalid_event_type(self):
+        """Test that invalid event types are skipped."""
+        raw = RawEvent(
+            source="windows_events",
+            collected_at=datetime(2026, 2, 8, 12, 0, tzinfo=UTC),
+            raw_data={
+                "event_type": "reboot",  # Invalid type
+                "event_id": 9999,
+                "timestamp": "2026-02-08T15:30:00+00:00",
+            },
+        )
+        events = self.transformer.transform([raw])
+        assert len(events) == 0

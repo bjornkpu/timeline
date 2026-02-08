@@ -270,36 +270,56 @@ class TestSessionIdExtraction:
         assert session_id == ""
 
 
+class TestLockUnlockEventParsing:
+    """Test parsing of lock/unlock events from Security log."""
+
+
 class TestQueryEventLog:
     """Test wevtutil command execution."""
 
     def test_query_event_log_success(self, collector: WindowsEventLogCollector) -> None:
         """Test successful wevtutil execution."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="<Event/>")
-            result = collector._query_event_log(DateRange.today())
-            assert result == "<Event/>"
+            mock_run.return_value = MagicMock(returncode=0, stdout="<Event/>", stderr="")
+            xml, access_denied = collector._query_event_log(DateRange.today())
+            assert xml == "<Event/>"
+            assert access_denied is False
+
+    def test_query_event_log_with_log_parameter(self, collector: WindowsEventLogCollector) -> None:
+        """Test that log parameter is passed to wevtutil."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="<Event/>", stderr="")
+            xml, access_denied = collector._query_event_log(DateRange.today(), log="Security")
+            assert xml == "<Event/>"
+            assert access_denied is False
+            # Verify wevtutil was called with Security log
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args[0][0]
+            assert "Security" in call_args
 
     def test_query_event_log_command_not_found(self, collector: WindowsEventLogCollector) -> None:
         """Test that FileNotFoundError (wevtutil not available) returns empty string."""
         with patch("subprocess.run", side_effect=FileNotFoundError()):
-            result = collector._query_event_log(DateRange.today())
-            assert result == ""
+            xml, access_denied = collector._query_event_log(DateRange.today())
+            assert xml == ""
+            assert access_denied is False
 
     def test_query_event_log_timeout(self, collector: WindowsEventLogCollector) -> None:
         """Test that timeout returns empty string."""
         import subprocess
 
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 30)):
-            result = collector._query_event_log(DateRange.today())
-            assert result == ""
+            xml, access_denied = collector._query_event_log(DateRange.today())
+            assert xml == ""
+            assert access_denied is False
 
     def test_query_event_log_nonzero_return_code(self, collector: WindowsEventLogCollector) -> None:
         """Test that non-zero return code returns empty string."""
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout="")
-            result = collector._query_event_log(DateRange.today())
-            assert result == ""
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
+            xml, access_denied = collector._query_event_log(DateRange.today())
+            assert xml == ""
+            assert access_denied is False
 
 
 # Helper function to generate test XML

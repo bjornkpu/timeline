@@ -258,7 +258,6 @@ class TestEventSourceFilter:
 
     def test_include_single_source(self, store: TimelineStore):
         """Filter to show only git events."""
-        now = datetime(2026, 2, 6, 12, 0, tzinfo=UTC)
         ts = datetime(2026, 2, 6, 9, 0, tzinfo=UTC)
         store.save_events(
             [
@@ -292,7 +291,6 @@ class TestEventSourceFilter:
 
     def test_include_multiple_sources(self, store: TimelineStore):
         """Filter to show only git and shell events."""
-        now = datetime(2026, 2, 6, 12, 0, tzinfo=UTC)
         ts = datetime(2026, 2, 6, 9, 0, tzinfo=UTC)
         store.save_events(
             [
