@@ -3,6 +3,8 @@
 Local-first daily activity timeline aggregator for developers.
 Python 3.13+, uv, ruff, pytest, click.
 
+Do not use git add/commit/push commands without my permission.
+
 ## Build & Run
 
 ```bash
@@ -61,6 +63,7 @@ src/timeline/
 ## Code Style
 
 ### Imports
+
 - `from __future__ import annotations` on every file
 - Stdlib first, third-party second, local third (enforced by ruff isort)
 - Always explicit named imports: `from timeline.models import DateRange, RawEvent`
@@ -68,6 +71,7 @@ src/timeline/
 - No star imports
 
 ### Types
+
 - All function signatures fully typed with return types
 - `str | None` not `Optional[str]` (PEP 604)
 - `list[str]`, `dict[str, Any]`, `set[str]` (lowercase builtins, PEP 585)
@@ -76,6 +80,7 @@ src/timeline/
 - `dict[str, Any]` for unstructured metadata blobs
 
 ### Naming
+
 - **Classes**: `PascalCase` — `TimelineStore`, `GitCollector`, `DateRange`
 - **Config dataclasses**: `<Thing>Config` — `GitCollectorConfig`, `BrowserCollectorConfig`
 - **Functions/methods**: `snake_case`
@@ -86,11 +91,13 @@ src/timeline/
 - **Test helpers**: `_` prefix — `_make_raw_git()`, `_write_history()`
 
 ### Docstrings
+
 - Module-level docstring on every file (one-line: `"""Description."""`)
 - Method docstrings: concise single-line when needed, omit for obvious methods
 - No `__all__` exports
 
 ### Error Handling
+
 - Build `msg` string then raise: `msg = "..."; raise ValueError(msg)`
 - `raise ... from None` to suppress exception chains in CLI
 - `contextlib.suppress(KeyError, ValueError)` for expected failures
@@ -101,6 +108,7 @@ src/timeline/
 - `try/finally` for resource cleanup: `pipeline.close()`
 
 ### Data Model
+
 - **Dataclasses** only (no Pydantic/attrs)
 - `frozen=True` for value objects (`DateRange`)
 - Mutable dataclasses for entities (`RawEvent`, `TimelineEvent`)
@@ -108,12 +116,14 @@ src/timeline/
 - All timestamps stored as UTC in SQLite, displayed in local timezone
 
 ### Collectors
+
 - Inherit from `Collector` ABC
 - `is_cheap() -> bool`: `True` for local sources (git, shell, browser), `False` for APIs (toggl)
 - Cheap collectors always re-scan; expensive ones use cached raw data
 - `collect(date_range) -> list[RawEvent]` with `event_timestamp` set
 
 ### Transformer
+
 - Source-specific `_transform_<source>()` methods dispatched from `_transform_event()`
 - Cascading categorization pattern (e.g., git: conventional commit -> file types -> fallback)
 - Project mapping: config-driven `[projects.mapping]`, fallback to repo name or cwd dir name
