@@ -46,6 +46,11 @@ class ShellCollectorConfig:
 
 
 @dataclass
+class WindowsEventLogCollectorConfig:
+    enabled: bool = False
+
+
+@dataclass
 class StdoutExporterConfig:
     enabled: bool = True
     group_by: str = "flat"  # "flat", "hour", "period"
@@ -68,6 +73,9 @@ class TimelineConfig:
     git: GitCollectorConfig = field(default_factory=GitCollectorConfig)
     shell: ShellCollectorConfig = field(default_factory=ShellCollectorConfig)
     browser: BrowserCollectorConfig = field(default_factory=BrowserCollectorConfig)
+    windows_events: WindowsEventLogCollectorConfig = field(
+        default_factory=WindowsEventLogCollectorConfig
+    )
     stdout: StdoutExporterConfig = field(default_factory=StdoutExporterConfig)
     summarizer: SummarizerConfig = field(default_factory=SummarizerConfig)
 
@@ -90,6 +98,7 @@ class TimelineConfig:
         git_data = data.get("collectors", {}).get("git", {})
         shell_data = data.get("collectors", {}).get("shell", {})
         browser_data = data.get("collectors", {}).get("browser", {})
+        windows_events_data = data.get("collectors", {}).get("windows_events", {})
         stdout_data = data.get("exporters", {}).get("stdout", {})
         summarizer_data = data.get("summarizer", {})
 
@@ -124,6 +133,9 @@ class TimelineConfig:
                 places_path=browser_data.get("places_path", ""),
                 skip_domains=browser_data.get("skip_domains", []),
                 domain_mapping=browser_data.get("domain_mapping", {}),
+            ),
+            windows_events=WindowsEventLogCollectorConfig(
+                enabled=windows_events_data.get("enabled", False),
             ),
             stdout=StdoutExporterConfig(
                 enabled=stdout_data.get("enabled", True),
@@ -208,6 +220,9 @@ skip_domains = [{", ".join(f'"{d}"' for d in config.browser.skip_domains)}]
 
 [collectors.browser.domain_mapping]
 {_format_domain_mapping(config.browser.domain_mapping)}
+
+[collectors.windows_events]
+enabled = {str(config.windows_events.enabled).lower()}
 
 [exporters.stdout]
 enabled = {str(config.stdout.enabled).lower()}

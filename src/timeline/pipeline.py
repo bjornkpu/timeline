@@ -10,6 +10,7 @@ from timeline.collectors.base import Collector
 from timeline.collectors.browser import BrowserCollector
 from timeline.collectors.git import GitCollector
 from timeline.collectors.shell import ShellCollector
+from timeline.collectors.windows_events import WindowsEventLogCollector
 from timeline.config import TimelineConfig
 from timeline.exporters.base import Exporter
 from timeline.exporters.stdout import StdoutExporter
@@ -36,6 +37,8 @@ class Pipeline:
             collectors.append(ShellCollector(self._config.shell))
         if self._config.browser.enabled:
             collectors.append(BrowserCollector(self._config.browser))
+        if self._config.windows_events.enabled:
+            collectors.append(WindowsEventLogCollector(self._config.windows_events))
         return collectors
 
     def _build_exporters(self) -> Sequence[Exporter]:
