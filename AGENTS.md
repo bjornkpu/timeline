@@ -61,12 +61,13 @@ src/timeline/
     cleaner.py        # DescriptionCleaner — description normalization
   pipeline.py         # orchestrator: collect -> transform -> summarize -> export
   summarizer.py       # LLM integration (stub)
-  collectors/
-    base.py           # ABC: collect(date_range) -> list[RawEvent]
-    git.py            # git log --all + reflog
-    shell.py          # JSONL from PSReadLine hook
-    browser.py        # Firefox/Zen places.sqlite
-    windows_events.py # Windows Event Log collector
+   collectors/
+     base.py           # ABC: collect(date_range) -> list[RawEvent]
+     git.py            # git log --all + reflog
+     shell.py          # JSONL from PSReadLine hook
+     browser.py        # Firefox/Zen places.sqlite
+     windows_events.py # Windows Event Log collector
+     calendar.py       # Outlook calendar via COM/MAPI
   exporters/
     base.py           # ABC: export(events, summary, date_range, config)
     stdout.py         # colored terminal output
@@ -130,14 +131,15 @@ src/timeline/
 ### Collectors
 
 - Inherit from `Collector` ABC
-- `is_cheap() -> bool`: `True` for local sources (git, shell, browser), `False` for APIs (toggl)
+- `is_cheap() -> bool`: `True` for local sources (git, shell, browser, calendar, windows_events), `False` for APIs (toggl)
 - Cheap collectors always re-scan; expensive ones use cached raw data
 - `collect(date_range) -> list[RawEvent]` with `event_timestamp` set
+- Calendar collector reads from Outlook via COM/MAPI (Windows only, no auth needed)
 
 ### Transformer
 
 - `Transformer` class in `dispatcher.py` accepts config + optional dependency overrides (for testing)
-- `Parser` class handles source-specific parsing: `parse_git()`, `parse_shell()`, `parse_browser()`
+- `Parser` class handles source-specific parsing: `parse_git()`, `parse_shell()`, `parse_browser()`, `parse_calendar()`, `parse_windows_events()`
 - `GitCommitCategorizer`: cascading rules (conventional commit → file types → fallback)
 - `ShellCommandCategorizer`: pre-sorted registry of matcher functions (`_is_vcs_command`, etc.)
 - `BrowserDomainCategorizer`: pre-sorted registry of domain pattern matchers
@@ -165,3 +167,5 @@ src/timeline/
 - `--quick` flag skips LLM summarization
 - Browser collector copies `places.sqlite` to temp file to avoid Firefox lock
 - Shell history uses PSReadLine hook writing JSONL to `~/.timeline/shell_history.jsonl`
+- Calendar collector reads from Outlook Classic (Desktop) using COM/MAPI (no auth needed)
+- Event display uses fixed-width duration field for consistent alignment regardless of end_time

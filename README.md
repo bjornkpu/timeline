@@ -6,7 +6,7 @@ Local-first daily activity timeline aggregator for developers. Collects data fro
 
 Three-layer pipeline: **raw** (collector output) → **events** (normalized) → **summaries** (LLM-derived). All data stored in local SQLite.
 
-**Collectors:** git log/reflog, PSReadLine shell history (JSONL), Firefox/Zen browser history.
+**Collectors:** git log/reflog, PSReadLine shell history (JSONL), Firefox/Zen browser history, Outlook calendar, Windows Event Log.
 **Exporters:** colored terminal output.
 
 ## Setup
