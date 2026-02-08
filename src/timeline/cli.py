@@ -6,7 +6,8 @@ from datetime import date
 
 import click
 
-from timeline.config import DEFAULT_CONFIG_PATH, TimelineConfig, interactive_init
+from timeline.config import TimelineConfig, generate_config_toml
+from timeline.config.models import TimelineConfig as TimelineConfigModel
 from timeline.models import DateRange
 from timeline.pipeline import Pipeline
 
@@ -43,12 +44,21 @@ def cli() -> None:
 
 @cli.command()
 def init() -> None:
-    """Interactively create configuration at ~/.timeline/config.toml."""
-    if DEFAULT_CONFIG_PATH.exists() and not click.confirm(
-        f"Config already exists at {DEFAULT_CONFIG_PATH}. Overwrite?"
+    """Create default configuration at ~/.timeline/config.toml."""
+    from pathlib import Path
+
+    config_path = Path.home() / ".timeline" / "config.toml"
+    if config_path.exists() and not click.confirm(
+        f"Config already exists at {config_path}. Overwrite?"
     ):
         return
-    interactive_init()
+
+    config = TimelineConfigModel()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(generate_config_toml(config))
+
+    click.echo(f"✓ Config created at: {config_path}")
+    click.echo("Edit to customize collectors, project mapping, etc.")
 
 
 @cli.command()
@@ -176,7 +186,6 @@ def backfill(
 
         timeline backfill --months 3 _            # last 3 months
     """
-    from datetime import timedelta
 
     if months is not None:
         date_range = DateRange.last_n_months(months)
@@ -209,7 +218,12 @@ def backfill(
 
 def _load_config() -> TimelineConfig:
     """Load config, with helpful error message if missing."""
+    from pathlib import Path
+
+    from timeline.config import load_config
+
     try:
-        return TimelineConfig.load()
+        config_path = Path.home() / ".timeline" / "config.toml"
+        return load_config(config_path)
     except FileNotFoundError as e:
         raise click.ClickException(str(e)) from None

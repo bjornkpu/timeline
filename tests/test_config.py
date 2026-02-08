@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from timeline.config import TimelineConfig, generate_config_toml
+from timeline.config import TimelineConfig, generate_config_toml, load_config
 
 
 class TestConfigLoad:
     def test_load_missing_file(self):
         with pytest.raises(FileNotFoundError, match="Run 'timeline init'"):
-            TimelineConfig.load(Path("/nonexistent/config.toml"))
+            load_config(Path("/nonexistent/config.toml"))
 
     def test_load_valid_toml(self, tmp_path):
         config_path = tmp_path / "config.toml"
@@ -44,7 +44,7 @@ group_by = "flat"
 enabled = false
 command = ""
 """)
-        config = TimelineConfig.load(config_path)
+        config = load_config(config_path)
         assert config.git.enabled is True
         assert len(config.git.authors) == 1
         assert config.git.authors[0].email == "bjorn@test.com"
@@ -62,5 +62,5 @@ command = ""
         config_path = tmp_path / "config.toml"
         config_path.write_text(toml_str)
 
-        loaded = TimelineConfig.load(config_path)
+        loaded = load_config(config_path)
         assert loaded.lunch_boundary == "11:30"

@@ -44,10 +44,21 @@ Three-layer pipeline: **raw** (collector output) -> **events** (normalized) -> *
 ```
 src/timeline/
   cli.py              # click CLI entry point
-  config.py           # TOML config loading, dataclass configs
+  config/
+    __init__.py       # public API re-export
+    models.py         # dataclass configs: GitCollectorConfig, BrowserCollectorConfig, etc.
+    loader.py         # load_config() — TOML read + validation
+    serializer.py     # generate_config_toml() — TOML write
+    validation.py     # ConfigValidator — schema validation (hard failures)
   models.py           # RawEvent, TimelineEvent, Summary, DateRange
   store.py            # SQLite storage (raw_events, events, summaries tables)
-  transformer.py      # raw -> events: categorization, project mapping
+  transformer/
+    __init__.py       # public API re-export
+    dispatcher.py     # Transformer orchestrator (dependency injection)
+    categorizer.py    # registry-based rules: GitCommitCategorizer, ShellCommandCategorizer, BrowserDomainCategorizer
+    parser.py         # source-specific parsing (git/shell/browser)
+    projector.py      # ProjectMapper — project name mapping
+    cleaner.py        # DescriptionCleaner — description normalization
   pipeline.py         # orchestrator: collect -> transform -> summarize -> export
   summarizer.py       # LLM integration (stub)
   collectors/
@@ -55,6 +66,7 @@ src/timeline/
     git.py            # git log --all + reflog
     shell.py          # JSONL from PSReadLine hook
     browser.py        # Firefox/Zen places.sqlite
+    windows_events.py # Windows Event Log collector
   exporters/
     base.py           # ABC: export(events, summary, date_range, config)
     stdout.py         # colored terminal output
@@ -124,9 +136,14 @@ src/timeline/
 
 ### Transformer
 
-- Source-specific `_transform_<source>()` methods dispatched from `_transform_event()`
-- Cascading categorization pattern (e.g., git: conventional commit -> file types -> fallback)
-- Project mapping: config-driven `[projects.mapping]`, fallback to repo name or cwd dir name
+- `Transformer` class in `dispatcher.py` accepts config + optional dependency overrides (for testing)
+- `Parser` class handles source-specific parsing: `parse_git()`, `parse_shell()`, `parse_browser()`
+- `GitCommitCategorizer`: cascading rules (conventional commit → file types → fallback)
+- `ShellCommandCategorizer`: pre-sorted registry of matcher functions (`_is_vcs_command`, etc.)
+- `BrowserDomainCategorizer`: pre-sorted registry of domain pattern matchers
+- `ProjectMapper`: config-driven `[projects.mapping]`, fallback to repo name or cwd dir name
+- `DescriptionCleaner`: strips conventional commit prefixes from descriptions
+- **Registry pattern**: Each categorizer has pluggable rules; add new rule = add static method, no refactoring
 
 ## Testing Patterns
 
