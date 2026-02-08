@@ -124,11 +124,17 @@ class TestEventLogParsing:
     def test_parse_xml_events_filters_by_session_id(
         self, collector: WindowsEventLogCollector
     ) -> None:
-        """Test that non-console sessions (SessionID != 0) are filtered."""
+        """Test that RDP sessions (TSId > 1) are filtered."""
+        today = datetime.now(UTC).date()
+        timestamp = (
+            datetime.combine(today, datetime.min.time(), tzinfo=UTC)
+            .replace(hour=14, minute=30)
+            .isoformat()
+        )
         xml = _make_event_xml(
             event_id="7001",
-            timestamp="2025-02-08T14:30:00Z",
-            session_id="1",  # RDP session, not console
+            timestamp=timestamp.replace("+00:00", "Z"),
+            session_id="6",  # RDP session (TSId=6), should be filtered
         )
         date_range = DateRange.today()
         events = collector._parse_xml_events(xml, date_range)

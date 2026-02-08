@@ -101,10 +101,12 @@ class WindowsEventLogCollector(Collector):
             if ts_utc < start_utc or ts_utc >= end_utc:
                 continue
 
-            # Extract SessionID from EventData (try both old and new formats)
+            # Extract SessionID/TSId (Terminal Session ID) from EventData
+            # TSId 0 or 1 = console session
+            # TSId 6+ = RDP/remote sessions
             session_id = self._extract_session_id(event_elem, ns)
-            if session_id != "0":
-                # Only include console sessions (SessionID=0)
+            if session_id and session_id not in ("0", "1"):
+                # Skip RDP/remote sessions
                 continue
 
             event_id = event_id_elem.text
@@ -126,17 +128,28 @@ class WindowsEventLogCollector(Collector):
         return events
 
     def _extract_session_id(self, event_elem: ET.Element, ns: dict[str, str]) -> str:
-        """Extract SessionID from EventData or ReplacementStrings.
+        """Extract SessionID or TSId (Terminal Session ID) from EventData.
 
-        EventID 7001/7002 store SessionID in different places depending on
-        Windows version and provider. Return "0" if not found (to exclude).
+        EventID 7001/7002 store session info in different fields depending on
+        Windows version and provider:
+        - SessionID: older format
+        - TSId (Terminal Session ID): newer format (0-1 = console, 6+ = RDP)
+
+        Returns empty string if not found (will allow event through).
         """
-        # Try EventData with Data[@Name="SessionID"]
         event_data = event_elem.find("event:EventData", ns)
         if event_data is not None:
             for data_elem in event_data.findall("event:Data", ns):
-                if data_elem.get("Name") == "SessionID" and data_elem.text:
-                    return data_elem.text.strip()
+                name = data_elem.get("Name")
+                text = data_elem.text
+
+                # Try SessionID first (older Windows versions)
+                if name == "SessionID" and text:
+                    return text.strip()
+
+                # Try TSId (Terminal Session ID, newer Windows versions)
+                if name == "TSId" and text:
+                    return text.strip()
 
         # Try ReplacementStrings (older format)
         replacement_strings = event_elem.find("event:ReplacementStrings", ns)
@@ -144,10 +157,10 @@ class WindowsEventLogCollector(Collector):
             strings = replacement_strings.findall("event:String", ns)
             if strings and strings[0].text:
                 # First string might be SessionID in some cases
-                # For safety, only accept if it looks like a valid SessionID (0-9)
+                # For safety, only accept if it looks like a valid ID (numeric)
                 text = strings[0].text.strip()
                 if text.isdigit():
                     return text
 
-        # Default: return empty (will be filtered out, excluding non-console sessions)
+        # Default: return empty string (will allow event through if not explicitly filtered)
         return ""
