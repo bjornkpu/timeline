@@ -102,11 +102,14 @@ class WindowsEventLogCollector(Collector):
                 continue
 
             # Extract SessionID/TSId (Terminal Session ID) from EventData
-            # TSId 0 or 1 = console session
-            # TSId 6+ = RDP/remote sessions
+            # TSId values:
+            #  0 = System/Services
+            #  1 = Console session (local user)
+            #  6 = RDP session (may be local user via Remote Desktop)
+            # We include both console (1) and RDP (6) to capture all user activity
             session_id = self._extract_session_id(event_elem, ns)
-            if session_id and session_id not in ("0", "1"):
-                # Skip RDP/remote sessions
+            if session_id and session_id not in ("0", "1", "6"):
+                # Skip other session types (7+, etc.)
                 continue
 
             event_id = event_id_elem.text

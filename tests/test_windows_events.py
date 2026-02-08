@@ -121,10 +121,10 @@ class TestEventLogParsing:
 
         assert events == []
 
-    def test_parse_xml_events_filters_by_session_id(
+    def test_parse_xml_events_includes_rdp_sessions(
         self, collector: WindowsEventLogCollector
     ) -> None:
-        """Test that RDP sessions (TSId > 1) are filtered."""
+        """Test that RDP sessions (TSId=6) are included along with console sessions."""
         today = datetime.now(UTC).date()
         timestamp = (
             datetime.combine(today, datetime.min.time(), tzinfo=UTC)
@@ -134,12 +134,13 @@ class TestEventLogParsing:
         xml = _make_event_xml(
             event_id="7001",
             timestamp=timestamp.replace("+00:00", "Z"),
-            session_id="6",  # RDP session (TSId=6), should be filtered
+            session_id="6",  # RDP session (TSId=6), should be included
         )
         date_range = DateRange.today()
         events = collector._parse_xml_events(xml, date_range)
 
-        assert events == []
+        assert len(events) == 1
+        assert events[0].raw_data["event_type"] == "logon"
 
     def test_parse_xml_events_filters_by_date_range(
         self, collector: WindowsEventLogCollector
