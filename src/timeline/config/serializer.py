@@ -75,6 +75,14 @@ skip_domains = [{", ".join(f'"{d}"' for d in config.browser.skip_domains)}]
 [collectors.windows_events]
 enabled = {str(config.windows_events.enabled).lower()}
 
+[collectors.calendar]
+enabled = {str(config.calendar.enabled).lower()}
+# Note: Calendar collector uses Outlook COM/MAPI
+# Reads from specified calendars, or default if empty list
+# Available: Calendar, Birthdays, United States holidays, etc.
+calendar_names = [{", ".join(f'"{n}"' for n in config.calendar.calendar_names)}]
+users = []
+
 [exporters.stdout]
 enabled = {str(config.stdout.enabled).lower()}
 group_by = "{config.stdout.group_by}"

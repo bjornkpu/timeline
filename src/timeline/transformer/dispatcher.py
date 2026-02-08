@@ -72,4 +72,9 @@ class Transformer:
                 raw,
                 self._config,
             )
+        if raw.source == "calendar":
+            return self._parser.parse_calendar(
+                raw,
+                self._config,
+            )
         return None

@@ -149,3 +149,105 @@ def sample_timeline_events() -> list[TimelineEvent]:
             },
         ),
     ]
+
+
+@pytest.fixture
+def sample_raw_calendar_events() -> list[RawEvent]:
+    """Realistic calendar raw events."""
+    now = datetime(2026, 2, 6, 12, 0, 0, tzinfo=UTC)
+    return [
+        RawEvent(
+            source="calendar",
+            collected_at=now,
+            raw_data={
+                "subject": "Ukentlig Team Demo",
+                "start_iso": "2026-02-06T09:00:00+01:00",
+                "end_iso": "2026-02-06T10:00:00+01:00",
+                "organizer_name": "Alice Smith",
+                "organizer_email": "alice@enova.com",
+                "location": "Teams Meeting",
+                "account_email": "user@enova.com",
+                "is_recurring": False,
+            },
+            event_timestamp=datetime(2026, 2, 6, 8, 0, 0, tzinfo=UTC),
+        ),
+        RawEvent(
+            source="calendar",
+            collected_at=now,
+            raw_data={
+                "subject": "Fagsamling",
+                "start_iso": "2026-02-06T14:00:00+01:00",
+                "end_iso": "2026-02-06T15:00:00+01:00",
+                "organizer_name": "Bob Johnson",
+                "organizer_email": "bob@crayon.no",
+                "location": "Conference Room B",
+                "account_email": "user@crayon.no",
+                "is_recurring": False,
+            },
+            event_timestamp=datetime(2026, 2, 6, 13, 0, 0, tzinfo=UTC),
+        ),
+        RawEvent(
+            source="calendar",
+            collected_at=now,
+            raw_data={
+                "subject": "1:1 with Manager",
+                "start_iso": "2026-02-06T11:30:00+01:00",
+                "end_iso": "2026-02-06T12:00:00+01:00",
+                "organizer_name": "Carol White",
+                "organizer_email": "carol@enova.com",
+                "location": "",
+                "account_email": "user@enova.com",
+                "is_recurring": False,
+            },
+            event_timestamp=datetime(2026, 2, 6, 10, 30, 0, tzinfo=UTC),
+        ),
+    ]
+
+
+@pytest.fixture
+def sample_calendar_timeline_events() -> list[TimelineEvent]:
+    """Pre-transformed calendar timeline events."""
+    return [
+        TimelineEvent(
+            timestamp=datetime(2026, 2, 6, 8, 0, 0, tzinfo=UTC),
+            source="calendar",
+            category="calendar",
+            description="Ukentlig Team Demo",
+            project="user@enova.com",
+            end_time=datetime(2026, 2, 6, 9, 0, 0, tzinfo=UTC),
+            metadata={
+                "organizer_name": "Alice Smith",
+                "organizer_email": "alice@enova.com",
+                "location": "Teams Meeting",
+                "is_recurring": False,
+            },
+        ),
+        TimelineEvent(
+            timestamp=datetime(2026, 2, 6, 10, 30, 0, tzinfo=UTC),
+            source="calendar",
+            category="calendar",
+            description="1:1 with Manager",
+            project="user@enova.com",
+            end_time=datetime(2026, 2, 6, 11, 0, 0, tzinfo=UTC),
+            metadata={
+                "organizer_name": "Carol White",
+                "organizer_email": "carol@enova.com",
+                "location": "",
+                "is_recurring": False,
+            },
+        ),
+        TimelineEvent(
+            timestamp=datetime(2026, 2, 6, 13, 0, 0, tzinfo=UTC),
+            source="calendar",
+            category="calendar",
+            description="Fagsamling",
+            project="user@crayon.no",
+            end_time=datetime(2026, 2, 6, 14, 0, 0, tzinfo=UTC),
+            metadata={
+                "organizer_name": "Bob Johnson",
+                "organizer_email": "bob@crayon.no",
+                "location": "Conference Room B",
+                "is_recurring": False,
+            },
+        ),
+    ]

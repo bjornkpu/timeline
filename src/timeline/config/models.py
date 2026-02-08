@@ -74,6 +74,16 @@ class WindowsEventLogCollectorConfig:
 
 
 @dataclass
+class CalendarCollectorConfig:
+    """Calendar collector configuration (Outlook COM/MAPI)."""
+
+    enabled: bool = False
+    users: list[str] = field(default_factory=list)  # Unused (kept for backwards compat)
+    # If empty, uses default calendar. If specified, only collects from these
+    calendar_names: list[str] = field(default_factory=list)
+
+
+@dataclass
 class StdoutExporterConfig:
     """Stdout exporter configuration."""
 
@@ -113,5 +123,6 @@ class TimelineConfig:
     windows_events: WindowsEventLogCollectorConfig = field(
         default_factory=WindowsEventLogCollectorConfig
     )
+    calendar: CalendarCollectorConfig = field(default_factory=CalendarCollectorConfig)
     stdout: StdoutExporterConfig = field(default_factory=StdoutExporterConfig)
     summarizer: SummarizerConfig = field(default_factory=SummarizerConfig)

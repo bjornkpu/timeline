@@ -12,6 +12,7 @@ from timeline.config.models import (
     DEFAULT_DB_PATH,
     DEFAULT_SHELL_HISTORY_PATH,
     BrowserCollectorConfig,
+    CalendarCollectorConfig,
     GitAuthor,
     GitCollectorConfig,
     ShellCollectorConfig,
@@ -54,6 +55,7 @@ def _from_dict(data: dict[str, Any]) -> TimelineConfig:
     shell_data = data.get("collectors", {}).get("shell", {})
     browser_data = data.get("collectors", {}).get("browser", {})
     windows_events_data = data.get("collectors", {}).get("windows_events", {})
+    calendar_data = data.get("collectors", {}).get("calendar", {})
     stdout_data = data.get("exporters", {}).get("stdout", {})
     summarizer_data = data.get("summarizer", {})
 
@@ -89,6 +91,11 @@ def _from_dict(data: dict[str, Any]) -> TimelineConfig:
         ),
         windows_events=WindowsEventLogCollectorConfig(
             enabled=windows_events_data.get("enabled", False),
+        ),
+        calendar=CalendarCollectorConfig(
+            enabled=calendar_data.get("enabled", False),
+            users=calendar_data.get("users", []),
+            calendar_names=calendar_data.get("calendar_names", []),
         ),
         stdout=StdoutExporterConfig(
             enabled=stdout_data.get("enabled", True),

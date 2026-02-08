@@ -3,16 +3,23 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
-from timeline.models import DateRange, RawEvent
+from timeline.models import DateRange
 
 
 class Collector(ABC):
     """Base class for all data source collectors."""
 
     @abstractmethod
-    def collect(self, date_range: DateRange) -> list[RawEvent]:
-        """Collect raw events from the source for the given date range."""
+    def collect(
+        self, date_range: DateRange
+    ) -> Any:  # list[RawEvent] or Coroutine[Any, Any, list[RawEvent]]
+        """Collect raw events from the source for the given date range.
+
+        Can be overridden as sync or async in subclasses.
+        Returns: list[RawEvent] or coroutine that yields list[RawEvent]
+        """
         ...
 
     @abstractmethod

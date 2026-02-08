@@ -17,6 +17,7 @@ SOURCE_COLORS: dict[str, str] = {
     "shell": "white",
     "calendar": "bright_magenta",
     "obsidian": "bright_blue",
+    "outlook": "bright_yellow",
 }
 
 # Category badge colors
@@ -184,7 +185,7 @@ class StdoutExporter(Exporter):
 
         click.echo()
         click.echo(click.style(f"  {header}", bold=True))
-        click.echo(click.style(f"  {'═' * len(header)}", dim=True))
+        click.echo(click.style(f"  {'=' * len(header)}", dim=True))
 
         # Show filter info if applied
         if source_filter:
@@ -220,6 +221,26 @@ class StdoutExporter(Exporter):
         local_time = event.timestamp.astimezone(config.timezone)
         time_str = local_time.strftime("%H:%M")
 
+        # Duration for events with end_time (fixed 7-char width for alignment)
+        duration_str = ""
+        if event.end_time:
+            end_local = event.end_time.astimezone(config.timezone)
+            delta = end_local - local_time
+            total_minutes = int(delta.total_seconds() / 60)
+            if total_minutes > 0:
+                if total_minutes >= 60:
+                    hours = total_minutes // 60
+                    minutes = total_minutes % 60
+                    if minutes == 0:
+                        duration_str = f"({hours}h)"
+                    else:
+                        duration_str = f"({hours}h{minutes}m)"
+                else:
+                    duration_str = f"({total_minutes}m)"
+
+        # Pad duration to 7 chars (e.g., " (30m) " or "       ") for alignment
+        duration_padded = f" {duration_str:<7}" if duration_str else "        "
+
         project = event.project or "unknown"
         desc = event.description
 
@@ -247,15 +268,15 @@ class StdoutExporter(Exporter):
         project_styled = click.style(project, fg="bright_white", bold=True)
 
         click.echo(
-            f"    {time_styled}  {source_styled} {project_styled} — {desc}{stats}{category_badge}"
+            f"    {time_styled}{click.style(duration_padded, dim=True)}{source_styled} {project_styled} — {desc}{stats}{category_badge}"
         )
 
     def _print_summary(self, summary: Summary | None) -> None:
         """Print summary section if available."""
         if summary:
             click.echo()
-            click.echo(click.style(f"  {'─' * 40}", dim=True))
+            click.echo(click.style(f"  {'-' * 40}", dim=True))
             click.echo(click.style("  Summary", bold=True))
-            click.echo(click.style(f"  {'─' * 40}", dim=True))
+            click.echo(click.style(f"  {'-' * 40}", dim=True))
             click.echo(f"  {summary.summary}")
         click.echo()

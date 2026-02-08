@@ -5,6 +5,7 @@ from __future__ import annotations
 from timeline.config.loader import load_config
 from timeline.config.models import (
     BrowserCollectorConfig,
+    CalendarCollectorConfig,
     GitAuthor,
     GitCollectorConfig,
     ShellCollectorConfig,
@@ -22,6 +23,7 @@ __all__ = [
     "BrowserCollectorConfig",
     "ShellCollectorConfig",
     "WindowsEventLogCollectorConfig",
+    "CalendarCollectorConfig",
     "StdoutExporterConfig",
     "SummarizerConfig",
     "load_config",

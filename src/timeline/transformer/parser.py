@@ -195,3 +195,71 @@ class Parser:
             metadata=metadata,
             raw_event_id=raw.id,
         )
+
+    def parse_calendar(
+        self,
+        raw: RawEvent,
+        config: TimelineConfig,
+    ) -> TimelineEvent | None:
+        """Transform a raw calendar event into a timeline event."""
+        data = raw.raw_data
+
+        # Support both old Graph API format and new COM format
+        try:
+            # New COM format: "start" key
+            if "start" in data:
+                timestamp = datetime.fromisoformat(data["start"])
+            # Old Graph format: "start_iso" key
+            else:
+                timestamp = datetime.fromisoformat(data["start_iso"])
+        except (KeyError, ValueError):
+            return None
+
+        subject = data.get("subject", "").strip()
+        if not subject:
+            return None
+
+        # Extract end time if available
+        end_time = None
+        try:
+            # New COM format
+            end_str = data.get("end") or data.get("end_iso")
+            if end_str:
+                end_time = datetime.fromisoformat(end_str)
+        except ValueError:
+            pass
+
+        # Extract project from mailbox/calendar name
+        # For COM: use mailbox name (Crayon, Enova, etc)
+        # For Graph: use account email
+        mailbox = data.get("mailbox", "")
+        account_email = data.get("account_email", "")
+
+        # Extract company name from mailbox (before @)
+        if mailbox:
+            project = (
+                mailbox.split("@")[1].split(".")[0].capitalize() if "@" in mailbox else mailbox
+            )
+        else:
+            project = account_email if account_email else None
+
+        category = data.get("organizer", "").strip() or "calendar"
+
+        metadata = {
+            "organizer": data.get("organizer", ""),
+            "organizer_name": data.get("organizer_name", ""),
+            "organizer_email": data.get("organizer_email", ""),
+            "location": data.get("location", ""),
+            "is_recurring": data.get("is_recurring", False),
+        }
+
+        return TimelineEvent(
+            timestamp=timestamp,
+            source="calendar",
+            category=category,
+            description=subject,
+            project=project,
+            end_time=end_time,
+            metadata=metadata,
+            raw_event_id=raw.id,
+        )

@@ -3,6 +3,8 @@
 from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
 
+import pytest
+
 from timeline.models import DateRange
 from timeline.pipeline import Pipeline
 
@@ -33,7 +35,8 @@ class TestDateRangeIterDays:
 
 
 class TestBackfill:
-    def test_backfill_collects_each_day(self, config):
+    @pytest.mark.asyncio
+    async def test_backfill_collects_each_day(self, config):
         """Backfill should call collector for each day in range."""
         pipeline = Pipeline(config)
         dr = DateRange(start=date(2026, 2, 3), end=date(2026, 2, 5))
@@ -44,12 +47,13 @@ class TestBackfill:
         mock_collector.collect.return_value = []
         pipeline._collectors = [mock_collector]
 
-        pipeline.backfill(dr)
+        await pipeline.backfill(dr)
 
         # Should be called 3 times (Feb 3, 4, 5)
         assert mock_collector.collect.call_count == 3
 
-    def test_backfill_skips_days_with_existing_data(self, config):
+    @pytest.mark.asyncio
+    async def test_backfill_skips_days_with_existing_data(self, config):
         """Days that already have events should be skipped."""
         pipeline = Pipeline(config)
 
@@ -75,12 +79,13 @@ class TestBackfill:
         mock_collector.collect.return_value = []
         pipeline._collectors = [mock_collector]
 
-        pipeline.backfill(dr, force=False)
+        await pipeline.backfill(dr, force=False)
 
         # Feb 4 skipped, so only 2 calls (Feb 3 and Feb 5)
         assert mock_collector.collect.call_count == 2
 
-    def test_backfill_force_recollects(self, config):
+    @pytest.mark.asyncio
+    async def test_backfill_force_recollects(self, config):
         """--force should re-collect even days with existing data."""
         pipeline = Pipeline(config)
 
@@ -105,12 +110,13 @@ class TestBackfill:
         mock_collector.collect.return_value = []
         pipeline._collectors = [mock_collector]
 
-        pipeline.backfill(dr, force=True)
+        await pipeline.backfill(dr, force=True)
 
         # All 3 days collected
         assert mock_collector.collect.call_count == 3
 
-    def test_backfill_skips_api_collectors_by_default(self, config):
+    @pytest.mark.asyncio
+    async def test_backfill_skips_api_collectors_by_default(self, config):
         """API collectors should be skipped unless --include-api."""
         pipeline = Pipeline(config)
         dr = DateRange.for_date(date(2026, 2, 6))
@@ -127,11 +133,12 @@ class TestBackfill:
 
         pipeline._collectors = [cheap_collector, expensive_collector]
 
-        pipeline.backfill(dr, include_api=False)
+        await pipeline.backfill(dr, include_api=False)
         cheap_collector.collect.assert_called_once()
         expensive_collector.collect.assert_not_called()
 
-    def test_backfill_includes_api_when_flagged(self, config):
+    @pytest.mark.asyncio
+    async def test_backfill_includes_api_when_flagged(self, config):
         """--include-api should run API collectors too."""
         pipeline = Pipeline(config)
         dr = DateRange.for_date(date(2026, 2, 6))
@@ -143,5 +150,5 @@ class TestBackfill:
 
         pipeline._collectors = [expensive_collector]
 
-        pipeline.backfill(dr, include_api=True)
+        await pipeline.backfill(dr, include_api=True)
         expensive_collector.collect.assert_called_once()

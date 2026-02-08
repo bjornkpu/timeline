@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 
 import click
 
 from timeline.collectors.base import Collector
 from timeline.collectors.browser import BrowserCollector
+from timeline.collectors.calendar import CalendarCollector
 from timeline.collectors.git import GitCollector
 from timeline.collectors.shell import ShellCollector
 from timeline.collectors.windows_events import WindowsEventLogCollector
@@ -39,6 +41,8 @@ class Pipeline:
             collectors.append(BrowserCollector(self._config.browser))
         if self._config.windows_events.enabled:
             collectors.append(WindowsEventLogCollector(self._config.windows_events))
+        if self._config.calendar.enabled:
+            collectors.append(CalendarCollector(self._config.calendar))
         return collectors
 
     def _build_exporters(self) -> Sequence[Exporter]:
@@ -47,7 +51,7 @@ class Pipeline:
             exporters.append(StdoutExporter())
         return exporters
 
-    def run(
+    async def run(
         self,
         date_range: DateRange,
         quick: bool = False,
@@ -55,13 +59,13 @@ class Pipeline:
         source_filter: SourceFilter | None = None,
     ) -> None:
         """Full pipeline: collect → transform → summarize → export."""
-        self.collect(date_range, refresh=refresh)
+        await self.collect(date_range, refresh=refresh)
         self.transform(date_range)
         if not quick:
             self.summarize(date_range, refresh=refresh)
         self.show(date_range, source_filter=source_filter)
 
-    def collect(self, date_range: DateRange, refresh: bool = False) -> None:
+    async def collect(self, date_range: DateRange, refresh: bool = False) -> None:
         """Run all enabled collectors and store raw events."""
         for collector in self._collectors:
             source = collector.source_name()
@@ -78,7 +82,10 @@ class Pipeline:
                     click.echo(f"  [{source}] Cleared {deleted} cached events")
 
             click.echo(f"  [{source}] Collecting...")
-            raw_events = collector.collect(date_range)
+            if asyncio.iscoroutinefunction(collector.collect):
+                raw_events = await collector.collect(date_range)
+            else:
+                raw_events = collector.collect(date_range)
             count = self._store.save_raw(raw_events)
             click.echo(f"  [{source}] {len(raw_events)} found, {count} new")
 
@@ -130,7 +137,7 @@ class Pipeline:
         if group_by:
             self._config.stdout.group_by = original_group_by
 
-    def backfill(
+    async def backfill(
         self,
         date_range: DateRange,
         force: bool = False,
@@ -147,7 +154,7 @@ class Pipeline:
 
         click.echo(
             f"Backfilling {total_days} days: "
-            f"{date_range.start.isoformat()} → {date_range.end.isoformat()}"
+            f"{date_range.start.isoformat()} – {date_range.end.isoformat()}"
         )
         click.echo()
 
@@ -169,7 +176,10 @@ class Pipeline:
                 if not include_api and not collector.is_cheap():
                     continue
 
-                raw = collector.collect(day_range)
+                if asyncio.iscoroutinefunction(collector.collect):
+                    raw = await collector.collect(day_range)
+                else:
+                    raw = collector.collect(day_range)
                 self._store.save_raw(raw)
                 day_events += len(raw)
 

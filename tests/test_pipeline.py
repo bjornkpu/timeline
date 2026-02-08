@@ -3,6 +3,8 @@
 from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
 
+import pytest
+
 from timeline.models import DateRange, RawEvent
 from timeline.pipeline import Pipeline
 
@@ -10,7 +12,8 @@ from timeline.pipeline import Pipeline
 class TestPipelineCaching:
     """Test that expensive collectors use caching correctly."""
 
-    def test_cheap_collector_always_runs(self, config):
+    @pytest.mark.asyncio
+    async def test_cheap_collector_always_runs(self, config):
         """Git (cheap) should always collect, even if data exists."""
         pipeline = Pipeline(config)
         dr = DateRange.for_date(date(2026, 2, 6))
@@ -34,10 +37,11 @@ class TestPipelineCaching:
         mock_collector.collect.return_value = []
         pipeline._collectors = [mock_collector]
 
-        pipeline.collect(dr)
+        await pipeline.collect(dr)
         mock_collector.collect.assert_called_once()
 
-    def test_expensive_collector_uses_cache(self, config):
+    @pytest.mark.asyncio
+    async def test_expensive_collector_uses_cache(self, config):
         """Expensive collectors should skip if raw data exists."""
         pipeline = Pipeline(config)
         dr = DateRange.for_date(date(2026, 2, 6))
@@ -59,10 +63,11 @@ class TestPipelineCaching:
         mock_collector.is_cheap.return_value = False
         pipeline._collectors = [mock_collector]
 
-        pipeline.collect(dr)
+        await pipeline.collect(dr)
         mock_collector.collect.assert_not_called()
 
-    def test_expensive_collector_refresh_forces_recollect(self, config):
+    @pytest.mark.asyncio
+    async def test_expensive_collector_refresh_forces_recollect(self, config):
         """--refresh should force expensive collectors to re-collect."""
         pipeline = Pipeline(config)
         dr = DateRange.for_date(date(2026, 2, 6))
@@ -84,7 +89,7 @@ class TestPipelineCaching:
         mock_collector.collect.return_value = []
         pipeline._collectors = [mock_collector]
 
-        pipeline.collect(dr, refresh=True)
+        await pipeline.collect(dr, refresh=True)
         mock_collector.collect.assert_called_once()
 
 

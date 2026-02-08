@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 
 import click
@@ -11,7 +12,7 @@ from timeline.config.models import TimelineConfig as TimelineConfigModel
 from timeline.models import DateRange, SourceFilter
 from timeline.pipeline import Pipeline
 
-AVAILABLE_SOURCES = {"git", "shell", "browser", "windows_events"}
+AVAILABLE_SOURCES = {"browser", "calendar", "git", "shell", "windows_events"}
 
 
 def parse_date_arg(value: str) -> DateRange:
@@ -111,13 +112,13 @@ def reset() -> None:
     "--include",
     type=str,
     default=None,
-    help="Show only these sources (csv). Git, shell, browser, windows_events",
+    help="Show only these sources (csv). Browser, calendar, git, shell, windows_events",
 )
 @click.option(
     "--exclude",
     type=str,
     default=None,
-    help="Hide these sources (csv). Git, shell, browser, windows_events",
+    help="Hide these sources (csv). Browser, calendar, git, shell, windows_events",
 )
 def run(
     date_str: str, quick: bool, refresh: bool, include: str | None, exclude: str | None
@@ -132,7 +133,9 @@ def run(
     source_filter = _build_source_filter(include, exclude)
     pipeline = Pipeline(config)
     try:
-        pipeline.run(date_range, quick=quick, refresh=refresh, source_filter=source_filter)
+        asyncio.run(
+            pipeline.run(date_range, quick=quick, refresh=refresh, source_filter=source_filter)
+        )
     finally:
         pipeline.close()
 
@@ -150,7 +153,7 @@ def collect(date_str: str, refresh: bool) -> None:
     date_range = parse_date_arg(date_str)
     pipeline = Pipeline(config)
     try:
-        pipeline.collect(date_range, refresh=refresh)
+        asyncio.run(pipeline.collect(date_range, refresh=refresh))
     finally:
         pipeline.close()
 
@@ -199,13 +202,13 @@ def summarize(date_str: str) -> None:
     "--include",
     type=str,
     default=None,
-    help="Show only these sources (csv). Git, shell, browser, windows_events",
+    help="Show only these sources (csv). Browser, calendar, git, shell, windows_events",
 )
 @click.option(
     "--exclude",
     type=str,
     default=None,
-    help="Hide these sources (csv). Git, shell, browser, windows_events",
+    help="Hide these sources (csv). Browser, calendar, git, shell, windows_events",
 )
 def show(
     date_str: str,
@@ -275,9 +278,70 @@ def backfill(
     config = _load_config()
     pipeline = Pipeline(config)
     try:
-        pipeline.backfill(date_range, force=force, include_api=include_api)
+        asyncio.run(pipeline.backfill(date_range, force=force, include_api=include_api))
     finally:
         pipeline.close()
+
+
+@cli.command()
+def list_calendars() -> None:
+    """List available Outlook calendars.
+
+    Helps you find calendar names to use in config.toml.
+    Shows calendars from all configured email accounts.
+    """
+    try:
+        import win32com.client
+    except ImportError as e:
+        raise click.ClickException("pywin32 not installed. Run: uv pip install pywin32") from e
+
+    try:
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        mapi = outlook.GetNamespace("MAPI")
+
+        click.echo("Available Outlook Mailboxes & Calendars:\n")
+
+        found_calendars = False
+
+        # Iterate through all mailboxes
+        for i in range(1, mapi.Folders.Count + 1):
+            mailbox = mapi.Folders(i)
+            click.echo(f"[MAILBOX] {mailbox.Name}")
+
+            calendar_folder = None
+            for folder in mailbox.Folders:
+                if folder.Name == "Calendar":
+                    calendar_folder = folder
+                    break
+
+            if not calendar_folder:
+                click.echo("  (No calendar folder found)")
+                continue
+
+            found_calendars = True
+            click.echo(f"  [MAIN] {calendar_folder.Name} ({calendar_folder.Items.Count} items)")
+
+            if calendar_folder.Folders.Count > 0:
+                for subfolder in calendar_folder.Folders:
+                    click.echo(f"    [SUB] {subfolder.Name} ({subfolder.Items.Count} items)")
+
+            click.echo()
+
+        if not found_calendars:
+            raise click.ClickException("No calendars found. Add email accounts to Outlook first.")
+
+        click.echo("=" * 50)
+        click.echo("Configuration for ~/.timeline/config.toml:")
+        click.echo("\n[collectors.calendar]")
+        click.echo("enabled = true")
+        click.echo('calendar_names = ["Calendar"]')
+        click.echo("\nNote: Currently only reads from first mailbox.")
+        click.echo("To include Enova calendar, add the Enova account to Outlook.")
+
+    except click.ClickException:
+        raise
+    except Exception as e:
+        raise click.ClickException(f"Error reading calendars: {e}") from None
 
 
 def _load_config() -> TimelineConfig:

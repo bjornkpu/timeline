@@ -37,6 +37,13 @@ class ConfigValidator:
                 ValidationError("collectors.windows_events", "Windows events config is None")
             )
 
+        if config.calendar is None:
+            errors.append(ValidationError("collectors.calendar", "Calendar config is None"))
+
+        if config.calendar and config.calendar.enabled:
+            # Calendar collector uses COM/MAPI, no email validation needed
+            pass
+
         # Validate project mapping
         for pattern, name in config.project_mapping.items():
             if not isinstance(pattern, str):

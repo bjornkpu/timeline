@@ -369,3 +369,15 @@ class BrowserDomainCategorizer:
     def _is_documents_domain(domain: str) -> bool:
         d = domain.lower()
         return "sharepoint.com" in d or "onedrive.live.com" in d
+
+
+class OutlookCategorizer:
+    """Categorize Outlook calendar events (always 'calendar')."""
+
+    def categorize(self) -> str:
+        """Return fixed 'calendar' category.
+
+        Since meeting titles are too varied to meaningfully categorize,
+        all calendar events are tagged as 'calendar'.
+        """
+        return "calendar"

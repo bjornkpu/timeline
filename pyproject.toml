@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "click>=8.1",
+    "pywin32>=305",
 ]
 
 [project.scripts]
@@ -21,8 +22,10 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-asyncio>=0.23.0",
     "pytest-cov>=6.0",
     "ruff>=0.15.0",
+    "ty>=0.0.15",
 ]
 
 [tool.ruff]
