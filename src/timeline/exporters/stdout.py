@@ -6,7 +6,7 @@ import click
 
 from timeline.config import TimelineConfig
 from timeline.exporters.base import Exporter
-from timeline.models import DateRange, Summary, TimelineEvent
+from timeline.models import DateRange, SourceFilter, Summary, TimelineEvent
 
 # Default color scheme — source name colors
 SOURCE_COLORS: dict[str, str] = {
@@ -44,14 +44,15 @@ class StdoutExporter(Exporter):
         summary: Summary | None,
         date_range: DateRange,
         config: TimelineConfig,
+        source_filter: SourceFilter | None = None,
     ) -> None:
         group_by = config.stdout.group_by
         if group_by == "hour":
-            self._export_by_hour(events, summary, date_range, config)
+            self._export_by_hour(events, summary, date_range, config, source_filter)
         elif group_by == "period":
-            self._export_by_period(events, summary, date_range, config)
+            self._export_by_period(events, summary, date_range, config, source_filter)
         else:
-            self._export_flat(events, summary, date_range, config)
+            self._export_flat(events, summary, date_range, config, source_filter)
 
     def _export_flat(
         self,
@@ -59,9 +60,10 @@ class StdoutExporter(Exporter):
         summary: Summary | None,
         date_range: DateRange,
         config: TimelineConfig,
+        source_filter: SourceFilter | None = None,
     ) -> None:
         """Flat chronological timeline."""
-        self._print_header(date_range, events, config)
+        self._print_header(date_range, events, config, source_filter)
 
         if not events:
             click.echo(click.style("  (no events)", dim=True))
@@ -77,9 +79,10 @@ class StdoutExporter(Exporter):
         summary: Summary | None,
         date_range: DateRange,
         config: TimelineConfig,
+        source_filter: SourceFilter | None = None,
     ) -> None:
         """Events grouped by hour blocks."""
-        self._print_header(date_range, events, config)
+        self._print_header(date_range, events, config, source_filter)
 
         if not events:
             click.echo(click.style("  (no events)", dim=True))
@@ -118,9 +121,10 @@ class StdoutExporter(Exporter):
         summary: Summary | None,
         date_range: DateRange,
         config: TimelineConfig,
+        source_filter: SourceFilter | None = None,
     ) -> None:
         """Events split into morning/afternoon by lunch boundary."""
-        self._print_header(date_range, events, config)
+        self._print_header(date_range, events, config, source_filter)
 
         if not events:
             click.echo(click.style("  (no events)", dim=True))
@@ -168,6 +172,7 @@ class StdoutExporter(Exporter):
         date_range: DateRange,
         events: list[TimelineEvent],
         config: TimelineConfig,
+        source_filter: SourceFilter | None = None,
     ) -> None:
         """Print date header with workday info."""
         if date_range.days == 1:
@@ -180,6 +185,14 @@ class StdoutExporter(Exporter):
         click.echo()
         click.echo(click.style(f"  {header}", bold=True))
         click.echo(click.style(f"  {'═' * len(header)}", dim=True))
+
+        # Show filter info if applied
+        if source_filter:
+            sources_str = ", ".join(sorted(source_filter.sources))
+            if source_filter.mode == "include":
+                click.echo(click.style(f"  Showing: {sources_str} only", dim=True))
+            else:  # exclude
+                click.echo(click.style(f"  Excluding: {sources_str}", dim=True))
 
         # Infer workday boundaries from events
         if events:

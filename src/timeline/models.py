@@ -136,6 +136,18 @@ class TimelineEvent:
     id: int | None = field(default=None, repr=False)
 
 
+@dataclass(frozen=True)
+class SourceFilter:
+    """Filter to include or exclude timeline events by source."""
+
+    mode: str  # 'include' or 'exclude'
+    sources: frozenset[str]  # source names to filter by
+
+    def __init__(self, mode: str, sources: set[str] | list[str]) -> None:
+        object.__setattr__(self, "mode", mode)
+        object.__setattr__(self, "sources", frozenset(sources))
+
+
 @dataclass
 class Summary:
     """LLM-generated summary for a time period."""

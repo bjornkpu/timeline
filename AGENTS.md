@@ -41,7 +41,7 @@ Rules: E, F, W, I (isort), N (naming), UP (pyupgrade), B (bugbear), A (builtins)
 
 Three-layer pipeline: **raw** (collector output) -> **events** (normalized) -> **summaries** (LLM-derived).
 
-```
+```txt
 src/timeline/
   cli.py              # click CLI entry point
   config/

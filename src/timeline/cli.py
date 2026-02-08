@@ -8,8 +8,10 @@ import click
 
 from timeline.config import TimelineConfig, generate_config_toml
 from timeline.config.models import TimelineConfig as TimelineConfigModel
-from timeline.models import DateRange
+from timeline.models import DateRange, SourceFilter
 from timeline.pipeline import Pipeline
+
+AVAILABLE_SOURCES = {"git", "shell", "browser", "windows_events"}
 
 
 def parse_date_arg(value: str) -> DateRange:
@@ -28,6 +30,33 @@ def parse_date_arg(value: str) -> DateRange:
     except ValueError:
         msg = f"Invalid date: '{value}'. Use 'today', 'yesterday', or YYYY-MM-DD."
         raise click.BadParameter(msg) from None
+
+
+def parse_source_arg(value: str) -> set[str]:
+    """Parse comma-separated source names and validate against AVAILABLE_SOURCES."""
+    sources = {s.strip().lower() for s in value.split(",")}
+    invalid = sources - AVAILABLE_SOURCES
+    if invalid:
+        msg = (
+            f"Invalid source(s): {', '.join(sorted(invalid))}. "
+            f"Available sources: {', '.join(sorted(AVAILABLE_SOURCES))}"
+        )
+        raise click.BadParameter(msg)
+    return sources
+
+
+def _build_source_filter(include: str | None, exclude: str | None) -> SourceFilter | None:
+    """Build SourceFilter from include/exclude flags. Validates mutual exclusivity."""
+    if include and exclude:
+        msg = "Cannot use both --include and --exclude"
+        raise click.UsageError(msg)
+    if include:
+        sources = parse_source_arg(include)
+        return SourceFilter(mode="include", sources=sources)
+    if exclude:
+        sources = parse_source_arg(exclude)
+        return SourceFilter(mode="exclude", sources=sources)
+    return None
 
 
 @click.group()
@@ -78,16 +107,31 @@ def reset() -> None:
 @click.argument("date_str", default="today")
 @click.option("--quick", is_flag=True, help="Skip LLM summarization")
 @click.option("--refresh", is_flag=True, help="Force re-collect from API sources")
-def run(date_str: str, quick: bool, refresh: bool) -> None:
+@click.option(
+    "--include",
+    type=str,
+    default=None,
+    help="Show only these sources (csv). Git, shell, browser, windows_events",
+)
+@click.option(
+    "--exclude",
+    type=str,
+    default=None,
+    help="Hide these sources (csv). Git, shell, browser, windows_events",
+)
+def run(
+    date_str: str, quick: bool, refresh: bool, include: str | None, exclude: str | None
+) -> None:
     """Full pipeline: collect, transform, summarize, and show.
 
     DATE can be 'today', 'yesterday', or YYYY-MM-DD.
     """
     date_range = parse_date_arg(date_str)
+    source_filter = _build_source_filter(include, exclude)
     config = _load_config()
     pipeline = Pipeline(config)
     try:
-        pipeline.run(date_range, quick=quick, refresh=refresh)
+        pipeline.run(date_range, quick=quick, refresh=refresh, source_filter=source_filter)
     finally:
         pipeline.close()
 
@@ -149,16 +193,34 @@ def summarize(date_str: str) -> None:
     default=None,
     help="How to group events in the display",
 )
-def show(date_str: str, group_by: str | None) -> None:
+@click.option(
+    "--include",
+    type=str,
+    default=None,
+    help="Show only these sources (csv). Git, shell, browser, windows_events",
+)
+@click.option(
+    "--exclude",
+    type=str,
+    default=None,
+    help="Hide these sources (csv). Git, shell, browser, windows_events",
+)
+def show(
+    date_str: str,
+    group_by: str | None,
+    include: str | None,
+    exclude: str | None,
+) -> None:
     """Display timeline from stored data.
 
     DATE can be 'today', 'yesterday', or YYYY-MM-DD.
     """
     date_range = parse_date_arg(date_str)
+    source_filter = _build_source_filter(include, exclude)
     config = _load_config()
     pipeline = Pipeline(config)
     try:
-        pipeline.show(date_range, group_by=group_by)
+        pipeline.show(date_range, group_by=group_by, source_filter=source_filter)
     finally:
         pipeline.close()
 

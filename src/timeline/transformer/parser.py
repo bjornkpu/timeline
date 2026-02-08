@@ -151,3 +151,38 @@ class Parser:
             metadata=metadata,
             raw_event_id=raw.id,
         )
+
+    def parse_windows_events(
+        self,
+        raw: RawEvent,
+        config: TimelineConfig,
+    ) -> TimelineEvent | None:
+        """Transform a Windows logon/logoff event into a timeline event."""
+        data = raw.raw_data
+        try:
+            timestamp = datetime.fromisoformat(data["timestamp"])
+        except (KeyError, ValueError):
+            return None
+
+        event_type = data.get("event_type", "")
+        if event_type not in ("logon", "logoff"):
+            return None
+
+        # Categorize based on event type
+        category = "afk" if event_type == "logoff" else "active"
+        description = f"Workstation {event_type}"
+
+        metadata = {
+            "event_type": event_type,
+            "event_id": data.get("event_id", ""),
+        }
+
+        return TimelineEvent(
+            timestamp=timestamp,
+            source="windows_events",
+            category=category,
+            description=description,
+            project=None,
+            metadata=metadata,
+            raw_event_id=raw.id,
+        )

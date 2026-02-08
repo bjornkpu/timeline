@@ -2,7 +2,7 @@
 
 from datetime import UTC, date, datetime
 
-from timeline.models import DateRange, PeriodType, RawEvent, Summary, TimelineEvent
+from timeline.models import DateRange, PeriodType, RawEvent, SourceFilter, Summary, TimelineEvent
 from timeline.store import TimelineStore
 
 
@@ -251,3 +251,175 @@ class TestSummaryStorage:
     def test_no_summary(self, store: TimelineStore):
         dr = DateRange.for_date(date(2026, 2, 6))
         assert store.get_summary(dr, PeriodType.DAY) is None
+
+
+class TestEventSourceFilter:
+    """Test source filtering for timeline events."""
+
+    def test_include_single_source(self, store: TimelineStore):
+        """Filter to show only git events."""
+        now = datetime(2026, 2, 6, 12, 0, tzinfo=UTC)
+        ts = datetime(2026, 2, 6, 9, 0, tzinfo=UTC)
+        store.save_events(
+            [
+                TimelineEvent(
+                    timestamp=ts,
+                    source="git",
+                    category="feature",
+                    description="Commit A",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="browser",
+                    category="browsing",
+                    description="Visit github.com",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="shell",
+                    category="navigation",
+                    description="cd /home",
+                ),
+            ]
+        )
+
+        dr = DateRange.for_date(date(2026, 2, 6))
+        source_filter = SourceFilter(mode="include", sources={"git"})
+        results = store.get_events(dr, source_filter=source_filter)
+
+        assert len(results) == 1
+        assert results[0].source == "git"
+
+    def test_include_multiple_sources(self, store: TimelineStore):
+        """Filter to show only git and shell events."""
+        now = datetime(2026, 2, 6, 12, 0, tzinfo=UTC)
+        ts = datetime(2026, 2, 6, 9, 0, tzinfo=UTC)
+        store.save_events(
+            [
+                TimelineEvent(
+                    timestamp=ts,
+                    source="git",
+                    category="feature",
+                    description="Commit A",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="browser",
+                    category="browsing",
+                    description="Visit github.com",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="shell",
+                    category="navigation",
+                    description="cd /home",
+                ),
+            ]
+        )
+
+        dr = DateRange.for_date(date(2026, 2, 6))
+        source_filter = SourceFilter(mode="include", sources={"git", "shell"})
+        results = store.get_events(dr, source_filter=source_filter)
+
+        assert len(results) == 2
+        sources = {r.source for r in results}
+        assert sources == {"git", "shell"}
+
+    def test_exclude_single_source(self, store: TimelineStore):
+        """Filter to hide browser events."""
+        ts = datetime(2026, 2, 6, 9, 0, tzinfo=UTC)
+        store.save_events(
+            [
+                TimelineEvent(
+                    timestamp=ts,
+                    source="git",
+                    category="feature",
+                    description="Commit A",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="browser",
+                    category="browsing",
+                    description="Visit github.com",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="shell",
+                    category="navigation",
+                    description="cd /home",
+                ),
+            ]
+        )
+
+        dr = DateRange.for_date(date(2026, 2, 6))
+        source_filter = SourceFilter(mode="exclude", sources={"browser"})
+        results = store.get_events(dr, source_filter=source_filter)
+
+        assert len(results) == 2
+        sources = {r.source for r in results}
+        assert sources == {"git", "shell"}
+
+    def test_exclude_multiple_sources(self, store: TimelineStore):
+        """Filter to hide browser and shell events."""
+        ts = datetime(2026, 2, 6, 9, 0, tzinfo=UTC)
+        store.save_events(
+            [
+                TimelineEvent(
+                    timestamp=ts,
+                    source="git",
+                    category="feature",
+                    description="Commit A",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="browser",
+                    category="browsing",
+                    description="Visit github.com",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="shell",
+                    category="navigation",
+                    description="cd /home",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="windows_events",
+                    category="activity",
+                    description="Logon",
+                ),
+            ]
+        )
+
+        dr = DateRange.for_date(date(2026, 2, 6))
+        source_filter = SourceFilter(mode="exclude", sources={"browser", "shell"})
+        results = store.get_events(dr, source_filter=source_filter)
+
+        assert len(results) == 2
+        sources = {r.source for r in results}
+        assert sources == {"git", "windows_events"}
+
+    def test_no_filter_returns_all(self, store: TimelineStore):
+        """When no filter provided, return all events."""
+        ts = datetime(2026, 2, 6, 9, 0, tzinfo=UTC)
+        store.save_events(
+            [
+                TimelineEvent(
+                    timestamp=ts,
+                    source="git",
+                    category="feature",
+                    description="Commit A",
+                ),
+                TimelineEvent(
+                    timestamp=ts,
+                    source="browser",
+                    category="browsing",
+                    description="Visit github.com",
+                ),
+            ]
+        )
+
+        dr = DateRange.for_date(date(2026, 2, 6))
+        results = store.get_events(dr, source_filter=None)
+
+        assert len(results) == 2

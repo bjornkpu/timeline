@@ -202,3 +202,88 @@ class TestGitMetadata:
         event = self.transformer.transform([raw])[0]
         assert event.metadata["author_email"] == "bjorn@test.com"
         assert event.metadata["repo_name"] == "my-project"
+
+
+class TestWindowsEventsTransformer:
+    """Test Windows event log transformation."""
+
+    def setup_method(self):
+        self.transformer = Transformer(TimelineConfig())
+
+    def test_parse_logon_event(self):
+        """Test that logon events are categorized as 'active'."""
+        raw = RawEvent(
+            source="windows_events",
+            collected_at=datetime(2026, 2, 8, 12, 0, tzinfo=UTC),
+            raw_data={
+                "event_type": "logon",
+                "event_id": 7001,
+                "timestamp": "2026-02-08T12:34:55.620115+00:00",
+            },
+        )
+        events = self.transformer.transform([raw])
+        assert len(events) == 1
+        event = events[0]
+        assert event.source == "windows_events"
+        assert event.category == "active"
+        assert event.description == "Workstation logon"
+
+    def test_parse_logoff_event(self):
+        """Test that logoff events are categorized as 'afk'."""
+        raw = RawEvent(
+            source="windows_events",
+            collected_at=datetime(2026, 2, 8, 12, 0, tzinfo=UTC),
+            raw_data={
+                "event_type": "logoff",
+                "event_id": 7002,
+                "timestamp": "2026-02-08T12:33:12.254599+00:00",
+            },
+        )
+        events = self.transformer.transform([raw])
+        assert len(events) == 1
+        event = events[0]
+        assert event.source == "windows_events"
+        assert event.category == "afk"
+        assert event.description == "Workstation logoff"
+
+    def test_invalid_event_type_skipped(self):
+        """Test that events with invalid event_type are skipped."""
+        raw = RawEvent(
+            source="windows_events",
+            collected_at=datetime(2026, 2, 8, 12, 0, tzinfo=UTC),
+            raw_data={
+                "event_type": "invalid",
+                "event_id": 9999,
+                "timestamp": "2026-02-08T12:34:55+00:00",
+            },
+        )
+        events = self.transformer.transform([raw])
+        assert len(events) == 0
+
+    def test_missing_timestamp_skipped(self):
+        """Test that events without timestamp are skipped."""
+        raw = RawEvent(
+            source="windows_events",
+            collected_at=datetime(2026, 2, 8, 12, 0, tzinfo=UTC),
+            raw_data={
+                "event_type": "logon",
+                "event_id": 7001,
+            },
+        )
+        events = self.transformer.transform([raw])
+        assert len(events) == 0
+
+    def test_metadata_preserved(self):
+        """Test that event metadata is preserved in transformation."""
+        raw = RawEvent(
+            source="windows_events",
+            collected_at=datetime(2026, 2, 8, 12, 0, tzinfo=UTC),
+            raw_data={
+                "event_type": "logon",
+                "event_id": 7001,
+                "timestamp": "2026-02-08T12:34:55+00:00",
+            },
+        )
+        event = self.transformer.transform([raw])[0]
+        assert event.metadata["event_type"] == "logon"
+        assert event.metadata["event_id"] == 7001

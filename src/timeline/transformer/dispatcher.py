@@ -67,4 +67,9 @@ class Transformer:
                 self._config,
                 self._browser_cat,
             )
+        if raw.source == "windows_events":
+            return self._parser.parse_windows_events(
+                raw,
+                self._config,
+            )
         return None

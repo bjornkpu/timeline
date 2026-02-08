@@ -11,6 +11,7 @@ from timeline.models import (
     DateRange,
     PeriodType,
     RawEvent,
+    SourceFilter,
     Summary,
     TimelineEvent,
 )
@@ -241,6 +242,7 @@ class TimelineStore:
         date_range: DateRange,
         source: str | None = None,
         project: str | None = None,
+        source_filter: SourceFilter | None = None,
     ) -> list[TimelineEvent]:
         conn = self._connect()
         query = (
@@ -248,7 +250,7 @@ class TimelineStore:
             "category, description, metadata, event_hash FROM events "
             "WHERE timestamp >= ? AND timestamp < ?"
         )
-        params: list[str] = [
+        params: list[str | int] = [
             date_range.start_utc.isoformat(),
             date_range.end_utc.isoformat(),
         ]
@@ -258,6 +260,14 @@ class TimelineStore:
         if project:
             query += " AND project = ?"
             params.append(project)
+        if source_filter:
+            sources_list = list(source_filter.sources)
+            placeholders = ",".join(["?" for _ in sources_list])
+            if source_filter.mode == "include":
+                query += f" AND source IN ({placeholders})"
+            else:  # exclude
+                query += f" AND source NOT IN ({placeholders})"
+            params.extend(sources_list)
         query += " ORDER BY timestamp"
 
         rows = conn.execute(query, params).fetchall()

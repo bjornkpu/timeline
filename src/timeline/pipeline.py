@@ -14,7 +14,7 @@ from timeline.collectors.windows_events import WindowsEventLogCollector
 from timeline.config import TimelineConfig
 from timeline.exporters.base import Exporter
 from timeline.exporters.stdout import StdoutExporter
-from timeline.models import DateRange, PeriodType
+from timeline.models import DateRange, PeriodType, SourceFilter
 from timeline.store import TimelineStore
 from timeline.summarizer import Summarizer
 from timeline.transformer import Transformer
@@ -52,13 +52,14 @@ class Pipeline:
         date_range: DateRange,
         quick: bool = False,
         refresh: bool = False,
+        source_filter: SourceFilter | None = None,
     ) -> None:
         """Full pipeline: collect → transform → summarize → export."""
         self.collect(date_range, refresh=refresh)
         self.transform(date_range)
         if not quick:
             self.summarize(date_range, refresh=refresh)
-        self.show(date_range)
+        self.show(date_range, source_filter=source_filter)
 
     def collect(self, date_range: DateRange, refresh: bool = False) -> None:
         """Run all enabled collectors and store raw events."""
@@ -108,9 +109,14 @@ class Pipeline:
             self._store.save_summary(summary)
             click.echo("  Summary generated")
 
-    def show(self, date_range: DateRange, group_by: str | None = None) -> None:
+    def show(
+        self,
+        date_range: DateRange,
+        group_by: str | None = None,
+        source_filter: SourceFilter | None = None,
+    ) -> None:
         """Display timeline from stored data."""
-        events = self._store.get_events(date_range)
+        events = self._store.get_events(date_range, source_filter=source_filter)
         summary = self._store.get_summary(date_range, PeriodType.DAY)
 
         # Allow overriding group_by for display
@@ -119,7 +125,7 @@ class Pipeline:
             self._config.stdout.group_by = group_by
 
         for exporter in self._exporters:
-            exporter.export(events, summary, date_range, self._config)
+            exporter.export(events, summary, date_range, self._config, source_filter=source_filter)
 
         if group_by:
             self._config.stdout.group_by = original_group_by
