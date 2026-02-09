@@ -84,3 +84,40 @@ class TestCalendarCollector:
 
         raw_event = CalendarCollector._item_to_raw_event(mock_item)
         assert raw_event is None
+
+
+# @pytest.mark.integration
+class TestCalendarIntegration:
+    """Integration tests that actually call Outlook COM (run with: pytest -m integration)."""
+
+    def setup_method(self) -> None:
+        """Initialize test collector."""
+        self.config = CalendarCollectorConfig(enabled=True, users=[])
+        self.collector = CalendarCollector(self.config)
+
+    @pytest.mark.asyncio
+    async def test_collect_real_events(self) -> None:
+        """Collect actual calendar events from Outlook to verify timezone handling."""
+        from datetime import date
+
+        # Collect events for today (Feb 9, 2026 - Monday)
+        today = date.today()
+        dr = DateRange.for_date(today)
+
+        events = await self.collector.collect(dr)
+
+        # Print events for manual verification
+        print(f"\n\n=== Collected {len(events)} events for {today} ===")
+        for event in events:
+            print(f"Subject: {event.raw_data.get('subject')}")
+            print(f"  Start: {event.raw_data.get('start')}")
+            print(f"  End: {event.raw_data.get('end')}")
+            print(f"  Event timestamp: {event.event_timestamp}")
+            print(f"  Mailbox: {event.raw_data.get('mailbox')}")
+            print()
+
+        # Basic assertions
+        if events:
+            assert all(e.source == "calendar" for e in events)
+            assert all(e.event_timestamp is not None for e in events)
+            assert all("subject" in e.raw_data for e in events)

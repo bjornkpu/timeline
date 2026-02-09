@@ -95,7 +95,9 @@ def _from_dict(data: dict[str, Any]) -> TimelineConfig:
         calendar=CalendarCollectorConfig(
             enabled=calendar_data.get("enabled", False),
             users=calendar_data.get("users", []),
+            mailboxes=calendar_data.get("mailboxes", []),
             calendar_names=calendar_data.get("calendar_names", []),
+            exclude_subjects=calendar_data.get("exclude_subjects", []),
         ),
         stdout=StdoutExporterConfig(
             enabled=stdout_data.get("enabled", True),

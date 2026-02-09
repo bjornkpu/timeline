@@ -79,8 +79,12 @@ class CalendarCollectorConfig:
 
     enabled: bool = False
     users: list[str] = field(default_factory=list)  # Unused (kept for backwards compat)
+    # If empty, collects from all mailboxes. If specified, only these mailboxes
+    mailboxes: list[str] = field(default_factory=list)
     # If empty, uses default calendar. If specified, only collects from these
     calendar_names: list[str] = field(default_factory=list)
+    # Event subjects to exclude (e.g., room bookings, status notifications)
+    exclude_subjects: list[str] = field(default_factory=list)
 
 
 @dataclass

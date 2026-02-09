@@ -76,39 +76,43 @@ class CalendarCollector(Collector):
 
         # Determine which calendars to collect from
         calendars_to_collect = []
-        if self._config.calendar_names:
-            # Collect from specified calendars in ALL mailboxes
-            try:
-                for i in range(1, mapi.Folders.Count + 1):
-                    mailbox = mapi.Folders(i)
+
+        # Filter mailboxes if specified in config
+        try:
+            for i in range(1, mapi.Folders.Count + 1):
+                mailbox = mapi.Folders(i)
+                mailbox_name = mailbox.Name
+
+                # Skip mailbox if not in filter list (when filter is specified)
+                if self._config.mailboxes and mailbox_name not in self._config.mailboxes:
+                    click.echo(
+                        click.style(
+                            f"📅 Skipping mailbox: {mailbox_name} (not in configured mailboxes)",
+                            fg="cyan",
+                        ),
+                        err=True,
+                    )
+                    continue
+
+                # Collect from specified calendar names or default
+                if self._config.calendar_names:
                     for folder in mailbox.Folders:
                         if folder.Name in self._config.calendar_names:
                             calendars_to_collect.append(folder)
-            except Exception as e:
-                click.echo(
-                    click.style(
-                        f"⚠️  Calendar: Could not find specified calendars: {e}",
-                        fg="yellow",
-                    ),
-                    err=True,
-                )
-        else:
-            # Use default calendar from each mailbox
-            try:
-                for i in range(1, mapi.Folders.Count + 1):
-                    mailbox = mapi.Folders(i)
+                else:
+                    # Use default calendar
                     for folder in mailbox.Folders:
                         if folder.Name == "Calendar":
                             calendars_to_collect.append(folder)
                             break
-            except Exception as e:
-                click.echo(
-                    click.style(
-                        f"⚠️  Calendar: Could not access calendars: {e}",
-                        fg="yellow",
-                    ),
-                    err=True,
-                )
+        except Exception as e:
+            click.echo(
+                click.style(
+                    f"⚠️  Calendar: Could not access calendars: {e}",
+                    fg="yellow",
+                ),
+                err=True,
+            )
 
         # Collect events from all selected calendars
         for calendar in calendars_to_collect:
@@ -121,23 +125,72 @@ class CalendarCollector(Collector):
                     mailbox_name = "unknown"
 
                 items = calendar.Items
+
+                # MUST sort by Start before setting IncludeRecurrences per Microsoft docs
+                items.Sort("[Start]")
                 items.IncludeRecurrences = True  # Expand recurring events
 
-                # Manual filtering instead of Restrict() for reliability
-                # Use UTC timezone for comparison
-                start_dt = datetime.combine(date_range.start, time.min, tzinfo=UTC)
-                end_dt = datetime.combine(date_range.end + timedelta(days=1), time.min, tzinfo=UTC)
+                # Date range for filtering (in UTC for comparison with StartUTC)
+                start_dt_utc = datetime.combine(date_range.start, time.min, tzinfo=UTC)
+                end_dt_utc = datetime.combine(
+                    date_range.end + timedelta(days=1), time.min, tzinfo=UTC
+                )
+
+                click.echo(
+                    click.style(
+                        f"📅 Calendar {calendar.Name}: Collecting from {date_range.start} to {date_range.end}",
+                        fg="cyan",
+                    ),
+                    err=True,
+                )
+
+                # NOTE: Restrict() doesn't work with IncludeRecurrences (returns empty collection)
+                # Must iterate and filter manually, but STOP once we pass the date range
+                # Items are sorted by Start, so we can break early
+                item_count = 0
+                processed = 0
+                max_items = 5000  # Reasonable cap for single-day collection
+                consecutive_errors = 0
+                max_consecutive_errors = 10  # Stop if we hit too many errors in a row
+                items_past_range = 0  # Track items beyond our date range
+                max_items_past_range = 50  # If we see many items past range, likely hit them all
 
                 for i in range(1, items.Count + 1):
+                    if item_count >= max_items:
+                        click.echo(
+                            click.style(
+                                f"⚠️  Calendar {calendar.Name}: Hit safety cap of {max_items} items, "
+                                f"may have missed events due to infinite recurring expansion",
+                                fg="yellow",
+                            ),
+                            err=True,
+                        )
+                        break
+
+                    if consecutive_errors >= max_consecutive_errors:
+                        click.echo(
+                            click.style(
+                                f"⚠️  Calendar {calendar.Name}: Too many consecutive errors, stopping",
+                                fg="yellow",
+                            ),
+                            err=True,
+                        )
+                        break
+
+                    # If we've seen many items past our date range, we've probably collected everything
+                    if items_past_range >= max_items_past_range:
+                        break
                     try:
                         item = items(i)
+                        item_count += 1
+                        consecutive_errors = 0  # Reset error counter on success
 
                         # Skip items without start time
-                        if not hasattr(item, "Start") or not item.Start:
+                        if not hasattr(item, "StartUTC") or not item.StartUTC:
                             continue
 
-                        # Convert COM datetime to Python datetime if needed
-                        item_start = item.Start
+                        # Convert COM datetime to Python datetime
+                        item_start = item.StartUTC
                         if not isinstance(item_start, datetime):
                             item_start = datetime(
                                 item_start.year,
@@ -146,10 +199,16 @@ class CalendarCollector(Collector):
                                 item_start.hour,
                                 item_start.minute,
                                 item_start.second,
+                                tzinfo=UTC,
                             )
 
-                        # Filter by date range
-                        if not (start_dt <= item_start < end_dt):
+                        # Early exit: items are sorted, so once we pass end date, we're done
+                        if item_start >= end_dt_utc:
+                            items_past_range += 1
+                            continue
+
+                        # Filter by date range (both in UTC)
+                        if item_start < start_dt_utc:
                             continue
 
                         # Skip items without subject
@@ -160,17 +219,34 @@ class CalendarCollector(Collector):
                         ):
                             continue
 
-                        # Skip items marked as free time
-                        if hasattr(item, "BusyStatus") and item.BusyStatus == 0:  # 0 = olFree
+                        # Skip items with excluded subjects
+                        if (
+                            self._config.exclude_subjects
+                            and item.Subject in self._config.exclude_subjects
+                        ):
                             continue
+
+                        # Skip items marked as free time
+                        # if hasattr(item, "BusyStatus") and item.BusyStatus == 0:  # 0 = olFree
+                        #     continue
 
                         raw_event = self._item_to_raw_event(item, mailbox_name)
                         if raw_event:
                             events.append(raw_event)
+                            processed += 1
 
                     except Exception:
-                        # Skip problematic items
+                        # Skip problematic items but track consecutive failures
+                        consecutive_errors += 1
                         pass
+
+                click.echo(
+                    click.style(
+                        f"📅 Calendar {calendar.Name} ({mailbox_name}): Scanned {item_count} items, collected {processed} events",
+                        fg="cyan",
+                    ),
+                    err=True,
+                )
 
             except Exception as e:
                 click.echo(
@@ -196,8 +272,9 @@ class CalendarCollector(Collector):
         """
         try:
             subject = item.Subject if hasattr(item, "Subject") else "Unknown"
-            start = item.Start if hasattr(item, "Start") else None
+            start = item.StartUTC if hasattr(item, "StartUTC") else None
             location = item.Location if hasattr(item, "Location") else ""
+            is_recurring = item.IsRecurring if hasattr(item, "IsRecurring") else False
 
             # Skip if no subject or start time
             if not start:
@@ -207,10 +284,10 @@ class CalendarCollector(Collector):
                 return None
 
             # Convert COM datetime to Python datetime
+            # COM datetimes from Outlook are in UTC
             if isinstance(start, str):
                 start_dt = datetime.fromisoformat(start)
             else:
-                # COM date object
                 start_dt = datetime(
                     start.year,
                     start.month,
@@ -222,7 +299,8 @@ class CalendarCollector(Collector):
                 )
 
             # Get end time if available
-            end = item.End if hasattr(item, "End") else start
+            # COM datetimes from Outlook are in UTC
+            end = item.EndUTC if hasattr(item, "EndUTC") else start
             if end and not isinstance(end, str):
                 end_dt = datetime(
                     end.year,
@@ -245,6 +323,7 @@ class CalendarCollector(Collector):
                 "subject": subject,
                 "location": location,
                 "organizer": organizer,
+                "is_recurring": is_recurring,
                 "mailbox": calendar_name,  # Add mailbox/calendar name for project mapping
                 "start": start_dt.isoformat(),
                 "end": end_dt.isoformat(),
