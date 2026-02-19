@@ -50,6 +50,52 @@ class DateRange:
         sunday = monday + timedelta(days=6)
         return cls(start=monday, end=sunday)
 
+    @classmethod
+    def for_week(cls, year: int, week: int) -> Self:
+        """Create DateRange from ISO week number (Monday-Sunday).
+
+        Args:
+            year: Year (e.g., 2026)
+            week: ISO week number (1-53)
+
+        Example:
+            >>> DateRange.for_week(2026, 8)  # Week 8 of 2026 (Feb 16-22)
+        """
+        jan_4 = date(year, 1, 4)
+        week_1_monday = jan_4 - timedelta(days=jan_4.weekday())
+        monday = week_1_monday + timedelta(weeks=week - 1)
+        sunday = monday + timedelta(days=6)
+        return cls(start=monday, end=sunday)
+
+    @classmethod
+    def parse_week(cls, week_str: str) -> Self:
+        """Parse ISO week string: '2026-W08', 'W08' (current year), '8' (current year).
+
+        Args:
+            week_str: Week identifier
+
+        Raises:
+            ValueError: If format invalid
+
+        Example:
+            >>> DateRange.parse_week("8")  # Week 8 of current year
+            >>> DateRange.parse_week("W08")  # Week 8 of current year
+            >>> DateRange.parse_week("2026-W08")  # Week 8 of 2026
+        """
+        week_str = week_str.strip().upper()
+
+        if week_str.isdigit():
+            return cls.for_week(date.today().year, int(week_str))
+
+        if week_str.startswith("W"):
+            return cls.for_week(date.today().year, int(week_str[1:]))
+
+        parts = week_str.split("-W")
+        if len(parts) != 2:
+            msg = f"Invalid week format: '{week_str}'. Use 'YYYY-Wnn', 'Wnn', or 'n'."
+            raise ValueError(msg)
+        return cls.for_week(int(parts[0]), int(parts[1]))
+
     @property
     def start_utc(self) -> datetime:
         return datetime.combine(self.start, datetime.min.time(), tzinfo=UTC)

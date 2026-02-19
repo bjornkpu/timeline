@@ -347,3 +347,43 @@ class TimelineStore:
             created_at=datetime.fromisoformat(row["created_at"]),
             id=row["id"],
         )
+
+    def get_summaries(
+        self,
+        date_range: DateRange,
+        period_type: PeriodType,
+    ) -> list[Summary]:
+        """Get all summaries within date range for given period type.
+
+        Returns summaries where date_start and date_end fall within the range.
+        Ordered by date_start ascending.
+        """
+        conn = self._connect()
+        rows = conn.execute(
+            "SELECT id, date_start, date_end, period_type, summary, model, created_at "
+            "FROM summaries "
+            "WHERE period_type = ? AND date_start >= ? AND date_end <= ? "
+            "ORDER BY date_start",
+            (
+                period_type.value,
+                date_range.start.isoformat(),
+                date_range.end.isoformat(),
+            ),
+        ).fetchall()
+
+        return [
+            Summary(
+                date_start=datetime.fromisoformat(row["date_start"]).date()
+                if "T" in row["date_start"]
+                else datetime.strptime(row["date_start"], "%Y-%m-%d").date(),
+                date_end=datetime.fromisoformat(row["date_end"]).date()
+                if "T" in row["date_end"]
+                else datetime.strptime(row["date_end"], "%Y-%m-%d").date(),
+                period_type=PeriodType(row["period_type"]),
+                summary=row["summary"],
+                model=row["model"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+                id=row["id"],
+            )
+            for row in rows
+        ]

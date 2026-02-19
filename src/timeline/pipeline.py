@@ -92,6 +92,8 @@ class Pipeline:
     def transform(self, date_range: DateRange) -> None:
         """Transform raw events into timeline events."""
         # Delete existing events for re-transformation
+        click.echo("  Transforming events...")
+
         self._store.delete_events(date_range)
 
         raw_events = self._store.get_raw(date_range)
@@ -109,12 +111,48 @@ class Pipeline:
             if existing:
                 click.echo("  Summary cached (use --refresh to regenerate)")
                 return
+        click.echo("  Generating summary...")
 
         events = self._store.get_events(date_range)
         summary = self._summarizer.summarize(events, date_range, PeriodType.DAY)
         if summary:
             self._store.save_summary(summary)
             click.echo("  Summary generated")
+
+    def summarize_week(self, date_range: DateRange, refresh: bool = False) -> None:
+        """Generate weekly summary from daily summaries."""
+        if not self._config.summarizer.enabled:
+            click.echo("  Summarizer disabled in config")
+            return
+
+        if not refresh:
+            existing = self._store.get_summary(date_range, PeriodType.WEEK)
+            if existing:
+                click.echo("  Weekly summary cached (use --refresh to regenerate)")
+                for exporter in self._exporters:
+                    exporter.export([], existing, date_range, self._config)
+                return
+
+        year, week_num, _ = date_range.start.isocalendar()
+        click.echo(f"  Generating weekly summary for {year}-W{week_num:02d}...")
+
+        daily_summaries = self._store.get_summaries(date_range, PeriodType.DAY)
+
+        if not daily_summaries:
+            click.echo("  ⚠️  No daily summaries found. Run 'timeline run' for each day first.")
+            return
+
+        missing_days = date_range.days - len(daily_summaries)
+        if missing_days > 0:
+            click.echo(f"  ⚠️  Warning: {missing_days}/{date_range.days} days missing summaries")
+
+        week_summary = self._summarizer.summarize_week(daily_summaries, date_range)
+        if week_summary:
+            self._store.save_summary(week_summary)
+            click.echo("  ✓ Weekly summary generated")
+
+            for exporter in self._exporters:
+                exporter.export([], week_summary, date_range, self._config)
 
     def show(
         self,
@@ -142,6 +180,8 @@ class Pipeline:
         date_range: DateRange,
         force: bool = False,
         include_api: bool = False,
+        quick: bool = False,
+        refresh: bool = True,
     ) -> None:
         """Backfill historical data for a date range.
 
@@ -195,6 +235,21 @@ class Pipeline:
                 click.echo(click.style(f"{prefix} — no events", dim=True))
 
             total_events += len(events)
+
+            # Summarize
+            if not quick:
+                if not self._config.summarizer.enabled:
+                    return
+
+                if not refresh:
+                    existing = self._store.get_summary(day_range, PeriodType.DAY)
+                    if existing:
+                        return
+
+                events = self._store.get_events(day_range)
+                summary = self._summarizer.summarize(events, day_range, PeriodType.DAY)
+                if summary:
+                    self._store.save_summary(summary)
 
         click.echo()
         click.echo(f"  Backfill complete: {total_events} total events across {total_days} days")

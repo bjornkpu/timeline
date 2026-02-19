@@ -85,13 +85,6 @@ class CalendarCollector(Collector):
 
                 # Skip mailbox if not in filter list (when filter is specified)
                 if self._config.mailboxes and mailbox_name not in self._config.mailboxes:
-                    click.echo(
-                        click.style(
-                            f"📅 Skipping mailbox: {mailbox_name} (not in configured mailboxes)",
-                            fg="cyan",
-                        ),
-                        err=True,
-                    )
                     continue
 
                 # Collect from specified calendar names or default
@@ -134,14 +127,6 @@ class CalendarCollector(Collector):
                 start_dt_utc = datetime.combine(date_range.start, time.min, tzinfo=UTC)
                 end_dt_utc = datetime.combine(
                     date_range.end + timedelta(days=1), time.min, tzinfo=UTC
-                )
-
-                click.echo(
-                    click.style(
-                        f"📅 Calendar {calendar.Name}: Collecting from {date_range.start} to {date_range.end}",
-                        fg="cyan",
-                    ),
-                    err=True,
                 )
 
                 # NOTE: Restrict() doesn't work with IncludeRecurrences (returns empty collection)
@@ -239,14 +224,6 @@ class CalendarCollector(Collector):
                         # Skip problematic items but track consecutive failures
                         consecutive_errors += 1
                         pass
-
-                click.echo(
-                    click.style(
-                        f"📅 Calendar {calendar.Name} ({mailbox_name}): Scanned {item_count} items, collected {processed} events",
-                        fg="cyan",
-                    ),
-                    err=True,
-                )
 
             except Exception as e:
                 click.echo(

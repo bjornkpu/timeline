@@ -13,8 +13,16 @@ SYSTEM_PROMPT = (
     "You are a concise developer productivity assistant. "
     "Summarize the following developer activity timeline into a brief daily report. "
     "Focus on: what was accomplished, key projects worked on, and notable patterns. "
-    "Do not read too much into the browser events, unless they clearly indicate productive work. "
+    "Do not read much into the browser events, unless they clearly indicate productive work. "
     "Keep it to 3-5 sentences. No bullet points, no headers — just a plain paragraph."
+)
+
+WEEKLY_SYSTEM_PROMPT = (
+    "You are a concise developer productivity assistant. "
+    "Synthesize the following daily activity summaries into a brief weekly report. "
+    "Focus on: major accomplishments, key projects across the week, productivity patterns, "
+    "and any notable trends or shifts. "
+    "Keep it to 5-8 sentences. No bullet points, no headers — just a plain paragraph."
 )
 
 
@@ -111,6 +119,51 @@ class Summarizer:
             date_start=date_range.start,
             date_end=date_range.end,
             period_type=period_type,
+            summary=summary_text,
+            model=model,
+        )
+
+    def summarize_week(
+        self,
+        daily_summaries: list[Summary],
+        date_range: DateRange,
+    ) -> Summary | None:
+        """Generate weekly summary from daily summaries via Claude CLI."""
+        if not self._config.summarizer.enabled:
+            return None
+
+        if not daily_summaries:
+            return None
+
+        model = self._config.summarizer.model
+
+        lines = []
+        for summary in daily_summaries:
+            day_name = summary.date_start.strftime("%A")
+            lines.append(f"{day_name} ({summary.date_start.isoformat()}): {summary.summary}")
+
+        summaries_text = "\n\n".join(lines)
+        year, week_num, _ = date_range.start.isocalendar()
+        prompt = (
+            f"Weekly summaries for {year}-W{week_num:02d} "
+            f"({date_range.start.isoformat()} to {date_range.end.isoformat()}):\n\n"
+            f"{summaries_text}"
+        )
+
+        try:
+            summary_text = _run_claude(prompt, WEEKLY_SYSTEM_PROMPT, model)
+        except (subprocess.TimeoutExpired, RuntimeError, FileNotFoundError) as exc:
+            click.echo(f"  [summarizer] Error: {exc}")
+            return None
+
+        if not summary_text:
+            click.echo("  [summarizer] Empty response from claude CLI")
+            return None
+
+        return Summary(
+            date_start=date_range.start,
+            date_end=date_range.end,
+            period_type=PeriodType.WEEK,
             summary=summary_text,
             model=model,
         )

@@ -33,6 +33,23 @@ def parse_date_arg(value: str) -> DateRange:
         raise click.BadParameter(msg) from None
 
 
+def parse_week_arg(value: str) -> DateRange:
+    """Parse week argument into DateRange.
+
+    Supports: 'this-week', '2026-W08', 'W08', '8'
+    """
+    value = value.strip().lower()
+
+    if value == "this-week":
+        return DateRange.this_week()
+
+    try:
+        return DateRange.parse_week(value)
+    except ValueError as e:
+        msg = f"Invalid week: '{value}'. Use 'this-week', '8', 'W08', or '2026-W08'."
+        raise click.BadParameter(msg) from e
+
+
 def parse_source_arg(value: str) -> set[str]:
     """Parse comma-separated source names and validate against AVAILABLE_SOURCES."""
     sources = {s.strip().lower() for s in value.split(",")}
@@ -186,6 +203,34 @@ def summarize(date_str: str) -> None:
     pipeline = Pipeline(config)
     try:
         pipeline.summarize(date_range)
+    finally:
+        pipeline.close()
+
+
+@cli.command()
+@click.argument("week_str", default="this-week")
+@click.option("--refresh", is_flag=True, help="Force regenerate from daily summaries")
+def summarize_week(week_str: str, refresh: bool) -> None:
+    """Generate weekly summary from daily summaries.
+
+    WEEK can be 'this-week', '8' (week number), 'W08', or '2026-W08'.
+
+    Aggregates all daily summaries for that week into a single weekly summary.
+    Requires daily summaries to exist — run 'timeline run' for each day first.
+
+    Examples:
+
+        timeline summarize-week                # Current week
+
+        timeline summarize-week 8              # Week 8 of current year
+
+        timeline summarize-week 2026-W08       # Specific week
+    """
+    date_range = parse_week_arg(week_str)
+    config = _load_config()
+    pipeline = Pipeline(config)
+    try:
+        pipeline.summarize_week(date_range, refresh=refresh)
     finally:
         pipeline.close()
 
