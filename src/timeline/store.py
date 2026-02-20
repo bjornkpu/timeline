@@ -387,3 +387,40 @@ class TimelineStore:
             )
             for row in rows
         ]
+
+    def get_previous_summary(
+        self,
+        date_range: DateRange,
+        period_type: PeriodType,
+    ) -> Summary | None:
+        """Get the most recent summary before the given date range for the period type.
+
+        Returns the summary where date_end < date_range.start, ordered by date_end desc.
+        """
+        conn = self._connect()
+        row = conn.execute(
+            "SELECT id, date_start, date_end, period_type, summary, model, created_at "
+            "FROM summaries "
+            "WHERE period_type = ? AND date_end < ? "
+            "ORDER BY date_end DESC "
+            "LIMIT 1",
+            (
+                period_type.value,
+                date_range.start.isoformat(),
+            ),
+        ).fetchone()
+        if row is None:
+            return None
+        return Summary(
+            date_start=datetime.fromisoformat(row["date_start"]).date()
+            if "T" in row["date_start"]
+            else datetime.strptime(row["date_start"], "%Y-%m-%d").date(),
+            date_end=datetime.fromisoformat(row["date_end"]).date()
+            if "T" in row["date_end"]
+            else datetime.strptime(row["date_end"], "%Y-%m-%d").date(),
+            period_type=PeriodType(row["period_type"]),
+            summary=row["summary"],
+            model=row["model"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            id=row["id"],
+        )

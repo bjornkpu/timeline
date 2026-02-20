@@ -114,7 +114,11 @@ class Pipeline:
         click.echo("  Generating summary...")
 
         events = self._store.get_events(date_range)
-        summary = self._summarizer.summarize(events, date_range, PeriodType.DAY)
+        previous_summary = self._store.get_previous_summary(date_range, PeriodType.DAY)
+
+        summary = self._summarizer.summarize(
+            events, date_range, PeriodType.DAY, previous_summary=previous_summary
+        )
         if summary:
             self._store.save_summary(summary)
             click.echo("  Summary generated")
@@ -146,7 +150,11 @@ class Pipeline:
         if missing_days > 0:
             click.echo(f"  ⚠️  Warning: {missing_days}/{date_range.days} days missing summaries")
 
-        week_summary = self._summarizer.summarize_week(daily_summaries, date_range)
+        previous_week_summary = self._store.get_previous_summary(date_range, PeriodType.WEEK)
+
+        week_summary = self._summarizer.summarize_week(
+            daily_summaries, date_range, previous_week_summary=previous_week_summary
+        )
         if week_summary:
             self._store.save_summary(week_summary)
             click.echo("  ✓ Weekly summary generated")
@@ -239,15 +247,18 @@ class Pipeline:
             # Summarize
             if not quick:
                 if not self._config.summarizer.enabled:
-                    return
+                    continue
 
                 if not refresh:
                     existing = self._store.get_summary(day_range, PeriodType.DAY)
                     if existing:
-                        return
+                        continue
 
                 events = self._store.get_events(day_range)
-                summary = self._summarizer.summarize(events, day_range, PeriodType.DAY)
+                previous_summary = self._store.get_previous_summary(day_range, PeriodType.DAY)
+                summary = self._summarizer.summarize(
+                    events, day_range, PeriodType.DAY, previous_summary=previous_summary
+                )
                 if summary:
                     self._store.save_summary(summary)
 
