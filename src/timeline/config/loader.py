@@ -15,6 +15,7 @@ from timeline.config.models import (
     CalendarCollectorConfig,
     GitAuthor,
     GitCollectorConfig,
+    OptimusPrismeConfig,
     ShellCollectorConfig,
     StdoutExporterConfig,
     SummarizerConfig,
@@ -58,6 +59,7 @@ def _from_dict(data: dict[str, Any]) -> TimelineConfig:
     calendar_data = data.get("collectors", {}).get("calendar", {})
     stdout_data = data.get("exporters", {}).get("stdout", {})
     summarizer_data = data.get("summarizer", {})
+    optimus_prisme_data = data.get("optimus_prisme", {})
 
     tz_str = general.get("timezone", "")
     tz = ZoneInfo(tz_str) if tz_str else _system_timezone()
@@ -106,5 +108,15 @@ def _from_dict(data: dict[str, Any]) -> TimelineConfig:
         summarizer=SummarizerConfig(
             enabled=summarizer_data.get("enabled", False),
             model=summarizer_data.get("model", ""),
+        ),
+        optimus_prisme=OptimusPrismeConfig(
+            enabled=optimus_prisme_data.get("enabled", True),
+            system_prompt=optimus_prisme_data.get("system_prompt", ""),
+            question1_label=optimus_prisme_data.get(
+                "question1_label", "Hva har vi levert / løst denne uken?"
+            ),
+            question2_label=optimus_prisme_data.get(
+                "question2_label", "Hvilke utfordringer har vi møtt?"
+            ),
         ),
     )

@@ -90,4 +90,12 @@ group_by = "{config.stdout.group_by}"
 [summarizer]
 enabled = {str(config.summarizer.enabled).lower()}
 model = "{config.summarizer.model}"
+
+[optimus_prisme]
+enabled = {str(config.optimus_prisme.enabled).lower()}
+# Customize the system prompt for generating Optimus Prisme answers
+# Leave empty to use default Norwegian prompt
+# system_prompt = ""
+question1_label = "{config.optimus_prisme.question1_label}"
+question2_label = "{config.optimus_prisme.question2_label}"
 """

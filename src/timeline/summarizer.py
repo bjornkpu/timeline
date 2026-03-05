@@ -47,6 +47,22 @@ WEEKLY_SYSTEM_PROMPT = (
     "both detail and strategic perspective."
 )
 
+OPTIMUS_PRISME_SYSTEM_PROMPT_TEMPLATE = (
+    "Du er en assistent som hjelper en utvikler med å svare på "
+    "ukentlige oppdateringsmeldinger til teamet.\n"
+    "Basert på aktivitetsloggen under, svar på to spørsmål:\n\n"
+    "1. {question1_label}\n"
+    "2. {question2_label}\n\n"
+    "Svar på norsk. Vær konkret og kortfattet — 2-6 kulepunkter per spørsmål.\n"
+    "Fokuser på konkrete leveranser og kundeverdi, ikke tekniske detaljer.\n"
+    "Bruk 'vi' og kundenes navn (antagelig Enova) der det er kjent fra prosjektnavnene.\n\n"
+    "Svar i dette formatet:\n\n"
+    "**{question1_label}**\n"
+    "- ...\n\n"
+    "**{question2_label}**\n"
+    "- ...\n"
+)
+
 
 def _format_events(events: list[TimelineEvent], config: TimelineConfig) -> str:
     """Format events into a text block for the LLM prompt."""
@@ -212,3 +228,47 @@ class Summarizer:
             summary=summary_text,
             model=model,
         )
+
+    def summarize_optimus(
+        self,
+        events: list[TimelineEvent],
+        date_range: DateRange,
+    ) -> str | None:
+        """Generate Optimus Prisme weekly answer for Slack bot."""
+        if not self._config.optimus_prisme.enabled:
+            return None
+
+        if not events:
+            return None
+
+        model = self._config.summarizer.model
+        event_text = _format_events(events, self._config)
+
+        # Use custom prompt if provided, otherwise generate from template
+        if self._config.optimus_prisme.system_prompt:
+            system_prompt = self._config.optimus_prisme.system_prompt
+        else:
+            system_prompt = OPTIMUS_PRISME_SYSTEM_PROMPT_TEMPLATE.format(
+                question1_label=self._config.optimus_prisme.question1_label,
+                question2_label=self._config.optimus_prisme.question2_label,
+            )
+
+        # Format the activity for the LLM
+        year, week_num, _ = date_range.start.isocalendar()
+        prompt = (
+            f"Activity timeline for week {year}-W{week_num:02d} "
+            f"({date_range.start.isoformat()} to {date_range.end.isoformat()}) "
+            f"({len(events)} events):\n\n{event_text}"
+        )
+
+        try:
+            answer_text = _run_claude(prompt, system_prompt, model)
+        except (subprocess.TimeoutExpired, RuntimeError, FileNotFoundError) as exc:
+            click.echo(f"  [optimus] Error: {exc}")
+            return None
+
+        if not answer_text:
+            click.echo("  [optimus] Empty response from claude CLI")
+            return None
+
+        return answer_text

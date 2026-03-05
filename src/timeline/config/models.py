@@ -103,6 +103,16 @@ class SummarizerConfig:
     model: str = ""
 
 
+@dataclass
+class OptimusPrismeConfig:
+    """Optimus Prisme weekly summary configuration."""
+
+    enabled: bool = True
+    system_prompt: str = ""
+    question1_label: str = "Hva har vi levert / løst denne uken?"
+    question2_label: str = "Hvilke utfordringer har vi møtt?"
+
+
 def _system_timezone() -> tzinfo:
     """Detect system timezone."""
     from datetime import datetime
@@ -130,3 +140,4 @@ class TimelineConfig:
     calendar: CalendarCollectorConfig = field(default_factory=CalendarCollectorConfig)
     stdout: StdoutExporterConfig = field(default_factory=StdoutExporterConfig)
     summarizer: SummarizerConfig = field(default_factory=SummarizerConfig)
+    optimus_prisme: OptimusPrismeConfig = field(default_factory=OptimusPrismeConfig)

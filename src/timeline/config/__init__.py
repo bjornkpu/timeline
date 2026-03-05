@@ -8,6 +8,7 @@ from timeline.config.models import (
     CalendarCollectorConfig,
     GitAuthor,
     GitCollectorConfig,
+    OptimusPrismeConfig,
     ShellCollectorConfig,
     StdoutExporterConfig,
     SummarizerConfig,
@@ -26,6 +27,7 @@ __all__ = [
     "CalendarCollectorConfig",
     "StdoutExporterConfig",
     "SummarizerConfig",
+    "OptimusPrismeConfig",
     "load_config",
     "generate_config_toml",
 ]

@@ -389,6 +389,39 @@ def list_calendars() -> None:
         raise click.ClickException(f"Error reading calendars: {e}") from None
 
 
+@cli.command()
+@click.argument("week_str", default="this-week")
+@click.option("--refresh", is_flag=True, help="Force re-collection of all days")
+def optimus(week_str: str, refresh: bool) -> None:
+    """Generate Optimus Prisme weekly Slack answer in Norwegian.
+
+    Auto-collects and transforms any missing days of the week,
+    then generates a two-section answer to the Optimus Prisme bot questions.
+
+    WEEK can be 'this-week', '8' (week number), 'W08', or '2026-W08'.
+
+    Examples:
+
+        timeline optimus                  # Current week
+
+        timeline optimus 8                # Week 8 of current year
+
+        timeline optimus 2026-W08         # Specific week
+
+        timeline optimus --refresh        # Force re-collect all days
+    """
+    date_range = parse_week_arg(week_str)
+    config = _load_config()
+    pipeline = Pipeline(config)
+    try:
+        answer = asyncio.run(pipeline.generate_optimus(date_range, refresh=refresh))
+        if answer:
+            click.echo()
+            click.echo(answer)
+    finally:
+        pipeline.close()
+
+
 def _load_config() -> TimelineConfig:
     """Load config, with helpful error message if missing."""
     from pathlib import Path

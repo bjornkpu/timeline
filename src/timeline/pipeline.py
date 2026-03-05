@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Sequence
+from datetime import timedelta
 
 import click
 
@@ -264,6 +265,69 @@ class Pipeline:
 
         click.echo()
         click.echo(f"  Backfill complete: {total_events} total events across {total_days} days")
+
+    async def generate_optimus(self, date_range: DateRange, refresh: bool = False) -> str | None:
+        """Generate Optimus Prisme weekly answer.
+
+        Auto-collects and transforms any missing days Mon-Fri (excludes weekend).
+        Only collects data up through Friday of the week, not Saturday/Sunday.
+        """
+        if not self._config.optimus_prisme.enabled:
+            click.echo("  Optimus Prisme disabled in config")
+            return None
+
+        click.echo(
+            f"Generating Optimus Prisme answer for week {date_range.start.isocalendar()[1]}..."
+        )
+        click.echo()
+
+        # Auto-collect missing days (Monday-Friday only)
+        for day_range in date_range.iter_days():
+            # Skip Saturday (5) and Sunday (6)
+            if day_range.start.weekday() >= 5:
+                continue
+
+            day_str = day_range.start.isoformat()
+            has_events = self._store.get_events(day_range)
+
+            if has_events and not refresh:
+                click.echo(f"  {day_str} — already collected ({len(has_events)} events)")
+                continue
+
+            click.echo(f"  {day_str} — collecting...")
+            for collector in self._collectors:
+                if asyncio.iscoroutinefunction(collector.collect):
+                    raw = await collector.collect(day_range)
+                else:
+                    raw = collector.collect(day_range)
+                self._store.save_raw(raw)
+
+            # Transform
+            self._store.delete_events(day_range)
+            raw_events = self._store.get_raw(day_range)
+            events = self._transformer.transform(raw_events)
+            self._store.save_events(events)
+
+            if events:
+                click.echo(f"  {day_str} — {len(events)} events")
+            else:
+                click.echo(click.style(f"  {day_str} — no events", dim=True))
+
+        click.echo()
+
+        # Generate answer from all events Mon-Fri only
+        friday = date_range.start + timedelta(days=4)  # Monday is day 0, Friday is day 4
+        work_week_range = DateRange(date_range.start, friday)
+        events = self._store.get_events(work_week_range)
+
+        if not events:
+            click.echo("  No events found for the work week")
+            return None
+
+        click.echo("  Generating answer...")
+        answer = self._summarizer.summarize_optimus(events, work_week_range)
+
+        return answer
 
     def close(self) -> None:
         self._store.close()
