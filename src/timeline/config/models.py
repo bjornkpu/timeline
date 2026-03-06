@@ -109,8 +109,10 @@ class OptimusPrismeConfig:
 
     enabled: bool = True
     system_prompt: str = ""
-    question1_label: str = "Hva har vi levert / løst denne uken?"
-    question2_label: str = "Hvilke utfordringer har vi møtt?"
+    question1_label: str = "Hva har dere levert eller hvilke problemer har dere løst denne uken?"
+    question2_label: str = (
+        "Hvilke problemer/utfordringer har dere møtt på i teamet eller hos kunden?"
+    )
 
 
 def _system_timezone() -> tzinfo:
